@@ -532,7 +532,17 @@ def _drain_unstarted(pending: queue.Queue, state: _BatchState) -> None:
             _, lead = pending.get_nowait()
         except queue.Empty:
             return
-        state.record(lead, "not_attempted", "batch stopped after throttling")
+        # Why the batch stopped, rather than assuming. It ends for two quite
+        # different reasons -- the host refusing us, or a lead reaching an
+        # outcome nothing recognises -- and reporting the first for both sent
+        # somebody looking for a throttle that had not happened.
+        state.record(
+            lead,
+            "not_attempted",
+            "batch stopped after throttling"
+            if state.results["throttled"]
+            else "batch stopped for a lead that needs looking at",
+        )
 
 
 def _capture_failure(sb, cfg: RunConfig, run_dir: Path) -> None:

@@ -1,8 +1,18 @@
 """Step 10 -- read the screen the wizard stopped on and classify the lead.
 
-This step submits nothing and clicks nothing. It exists to answer the question
-the whole run is for: is this lead a sale, a document request, or someone who
-already has the benefit elsewhere.
+It exists to answer the question the whole run is for: is this lead a sale, a
+document request, or someone who already has the benefit elsewhere.
+
+It presses Continue on the screens that state no decision -- currently the
+account review, which reads the applicant's own details back at them. Those
+are pages between verdicts rather than verdicts, and classifying one would
+record an outcome the site never gave. Everything else it only reads.
+
+Worth being explicit about what that Continue does on the review screen: it
+consents to Assurance Wireless pre-populating a California LifeLine
+application with the details collected so far. That is a step beyond gathering
+Assurance Wireless's own information, and it is clicked because this run is
+meant to reach the eligibility decision, which sits behind it.
 
 It is also how the rest of the wizard gets mapped. Whatever screen the step
 before it lands on, this records the headings, fields and buttons into the run's
@@ -22,9 +32,43 @@ from ..artifacts import capture
 from ..classify import UNKNOWN, classify_screen
 from ..config import RunConfig
 from ..logs import LOG
-from ..page_utils import body_text, enter_enrollment_frame
+from ..page_utils import advance_screen, body_text, enter_enrollment_frame
 
 STEP_NAME = "step_10_classify"
+
+# Screens that state no decision and exist only to be acknowledged.
+#
+# The account review is the first of these: it reads the applicant's own
+# details back at them and offers Continue. Classifying it would be wrong --
+# it is not a verdict, it is a page between two verdicts -- so the run presses
+# Continue and carries on to whatever does state one.
+#
+# Matched on headings, lowercased.
+PASS_THROUGH_SCREENS = (
+    ("review your assurance wireless account information", "account review"),
+)
+
+CONTINUE_SELECTORS = (
+    "button.order-button:not(.float-end)",
+    'button:contains("Continue")',
+)
+
+# How many of these to click through before giving up. A wizard that keeps
+# handing back pages to acknowledge is one this step does not understand, and
+# clicking Continue indefinitely on a benefits application is not a thing to
+# do on a guess.
+MAX_PASS_THROUGH = 4
+
+# Seconds to sit still after each pass-through Continue, for the same reason
+# step 9 does it: the screens behind this point wait on a backend, and the
+# driver polling at them is what stopped that backend answering.
+SETTLE_AFTER_CONTINUE = 15.0
+
+
+def _pass_through(headings: list[str]) -> str:
+    """The name of the acknowledge-and-continue screen, or "" if this is not one."""
+    joined = " | ".join(headings or []).lower()
+    return next((name for signal, name in PASS_THROUGH_SCREENS if signal in joined), "")
 
 # Headings, the step rail, and any panel the wizard uses to announce a decision.
 _SCREEN_JS = """
@@ -43,8 +87,9 @@ def classify_lead(sb, cfg: RunConfig, lead, run_dir: Path, *, submit: bool = Tru
     """Classify the screen after PERSONAL INFO. Returns the step inventory
     with `verdict` and `screen` added.
 
-    `submit` is accepted for the uniform step signature and ignored: there is
-    nothing here to submit.
+    `submit=False` stops at the first acknowledge-and-continue screen rather
+    than pressing its button, so a dry run reaches the review page and leaves
+    the consent on it unclicked.
     """
     LOG.info("Step 10: reading the decision screen for %s", lead.label)
 
@@ -52,6 +97,35 @@ def classify_lead(sb, cfg: RunConfig, lead, run_dir: Path, *, submit: bool = Tru
 
     screen = sb.execute_script(_SCREEN_JS) or {}
     headings = screen.get("headings") or []
+
+    # Click past the screens that only ask to be acknowledged, so the verdict
+    # is read from one that actually states something.
+    for _ in range(MAX_PASS_THROUGH):
+        name = _pass_through(headings)
+        if not name:
+            break
+        if not submit:
+            LOG.warning(
+                "Step 10: on the %s screen; stopping before Continue (dry run)", name
+            )
+            break
+
+        LOG.info("Step 10: %s screen -- continuing past it", name)
+        capture(sb, run_dir, f"{STEP_NAME}_{name.replace(' ', '_')}", save=cfg.save_artifacts)
+        advance_screen(
+            sb, cfg, "Step 10", CONTINUE_SELECTORS,
+            settle=SETTLE_AFTER_CONTINUE,
+        )
+        enter_enrollment_frame(sb, cfg, "Step 10")
+        screen = sb.execute_script(_SCREEN_JS) or {}
+        headings = screen.get("headings") or []
+    else:
+        LOG.warning(
+            "Step 10: still being handed pages to acknowledge after %d of them; "
+            "reading this one as it stands rather than clicking on blindly.",
+            MAX_PASS_THROUGH,
+        )
+
     body = body_text(sb)
 
     LOG.info("Screen headings: %s", headings)
