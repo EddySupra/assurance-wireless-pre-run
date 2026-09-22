@@ -982,6 +982,25 @@ def _offset_within(back: int, forward: int, reach: int, minimum: int) -> int:
     return random.randint(minimum, forward)
 
 
+def _reach_framed(sb, selector: str, cfg: RunConfig) -> bool:
+    """Scroll the outer page so a field inside the enrollment frame is reachable.
+
+    Only meaningful inside that frame, and only when the aim has already
+    failed -- scrolling the page around the form is not something to do
+    speculatively before every click.
+
+    Imported here rather than at the top because page_utils imports this
+    module; the same deferred import is used by _drift_to for the same reason.
+    """
+    try:
+        from .page_utils import bring_framed_element_into_view
+
+        return bool(bring_framed_element_into_view(sb, selector, cfg))
+    except Exception as exc:
+        LOG.debug("Could not bring %s into reach: %s", selector, exc)
+        return False
+
+
 def _real_click(sb, element, selector: str, cfg: RunConfig) -> bool:
     """Click with the machine's own mouse. False means "fall back".
 
@@ -1000,6 +1019,13 @@ def _real_click(sb, element, selector: str, cfg: RunConfig) -> bool:
 
         real_input.scroll_to(sb, element, cfg)
         point = real_input.screen_point(sb, element)
+        if point is None and _reach_framed(sb, selector, cfg):
+            # Inside the enrollment frame the wheel scrolls the frame, and a
+            # frame taller than the window cannot bring its own lower fields
+            # into reach -- only the page around it can. Measured: #dobMonth
+            # aimed at with "only 298x1 px of it is inside the viewport",
+            # sitting one pixel above the fold with nothing able to move it.
+            point = real_input.screen_point(sb, element)
         if point is None:
             _blame(cfg, real_input.last_refusal(), selector)
             return False
@@ -1079,6 +1105,10 @@ def _real_type_once(sb, element, selector: str, value: str, cfg: RunConfig) -> b
 
     real_input.scroll_to(sb, element, cfg)
     point = real_input.screen_point(sb, element)
+    if point is None and _reach_framed(sb, selector, cfg):
+        # Same as the click path: a field low in the enrollment frame can only
+        # be brought into reach by the page around it.
+        point = real_input.screen_point(sb, element)
     if point is None:
         _blame(cfg, real_input.last_refusal(), selector)
         return False
