@@ -318,6 +318,32 @@ def is_throttle_message(message: str) -> bool:
     return any(signal in lowered for signal in THROTTLE_SIGNALS)
 
 
+# The app asking to be tried again, in as many words:
+#
+#   "A communication delay has occurred please click dismiss and then click
+#    'Next' to re-try. If the delay persists you may see this message, repeat
+#    the process."
+#
+# Not a verdict and not a refusal -- an instruction. Reading it as "the form
+# rejected the data" threw away a lead the site had explicitly invited us to
+# resubmit, which is the one kind of failure that costs nothing to get right.
+RETRYABLE_SIGNALS = (
+    "communication delay",
+    "please click dismiss and then click",
+    "to re-try",
+)
+
+# How many times to take the site up on it. Bounded because "repeat the
+# process" is not an invitation to submit an application indefinitely.
+MAX_RETRY_PROMPTS = 3
+
+
+def is_retryable_message(message: str) -> bool:
+    """Is the app asking us to dismiss this and try the same submit again?"""
+    lowered = (message or "").lower()
+    return any(signal in lowered for signal in RETRYABLE_SIGNALS)
+
+
 # Modals the app uses as progress spinners rather than errors. Treating one
 # of these as a rejection aborts a submission that was still in flight.
 PROGRESS_MODAL_HINTS = (
@@ -1590,6 +1616,9 @@ def advance_screen(
     # magnitude.
     poll = 2.0
 
+    # How many times the app has asked to be re-tried on this screen.
+    retries = 0
+
     while time.time() < deadline and time.time() < hard_deadline:
         # The app reports rejections through a modal, so check for one before
         # concluding that nothing happened.
@@ -1603,6 +1632,34 @@ def advance_screen(
                 continue
             if is_throttle_message(modal):
                 raise ThrottledError(f"{step_label}: the host is refusing us -- {modal}")
+
+            # The app asking to be tried again. Do what it says: dismiss the
+            # dialog, press the same button, and give the screen its budget
+            # back. Treating this as a rejection threw the lead away on the
+            # one failure the site had told us how to recover from.
+            if is_retryable_message(modal):
+                if retries >= MAX_RETRY_PROMPTS:
+                    raise ThrottledError(
+                        f"{step_label}: the host asked us to retry "
+                        f"{retries} times and never got further -- {modal}"
+                    )
+                retries += 1
+                LOG.info(
+                    "%s: the form reported a communication delay and asked to "
+                    "be re-tried (%d of %d) -- %s",
+                    step_label, retries, MAX_RETRY_PROMPTS, modal,
+                )
+                _click_modal_button(sb, "Dismiss", cfg) or dismiss_modal(sb)
+                rest(sb, cfg, "medium")
+                bring_framed_element_into_view(sb, selector, cfg)
+                human_click(sb, selector, cfg)
+                if settle > 0:
+                    LOG.info(
+                        "%s: hands off for %.0fs after the retry", step_label, settle
+                    )
+                    time.sleep(settle)
+                deadline = min(time.time() + budget, hard_deadline)
+                continue
 
             if is_confirm_modal(modal):
                 # A question, not a refusal. Answering it is how the screen
