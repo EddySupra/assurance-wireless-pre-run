@@ -191,6 +191,25 @@ def main() -> int:
              "generated; profiles made by hand are left alone.",
     )
     gologin.add_argument(
+        "--keep-extensions",
+        action="store_true",
+        help="start Orbita with its extensions enabled, the way GoLogin runs a "
+             "profile by hand. The run disables them by default because the "
+             "bundled ad blocker blocks Akamai's /akam/ sensor, which reads as "
+             "a bot -- but it also means the automated browser launches "
+             "differently from a manual one. Use it to test whether that "
+             "difference matters.",
+    )
+    gologin.add_argument(
+        "--keep-session",
+        action="store_true",
+        help="let the profile keep its cookies and local storage instead of "
+             "starting clean. The run clears them by default so a block cookie "
+             "cannot carry between leads -- the cost is that every automated "
+             "visit looks like a first-time visitor, where a hand-run profile "
+             "arrives with history.",
+    )
+    gologin.add_argument(
         "--reuse-profiles",
         action="store_true",
         help="reuse the saved profiles in GOLOGIN_PROFILE_ID instead of "
@@ -441,6 +460,13 @@ def main() -> int:
             p.strip() for p in args.gologin_profile.split(",") if p.strip()
         )
     cfg.gologin.random_profile = args.random_profile
+    # Both default on; these turn them off so a run can be made to match how
+    # GoLogin launches a profile by hand, which is the comparison that matters
+    # when the same profile succeeds manually and fails automated.
+    if args.keep_extensions:
+        cfg.gologin.disable_extensions = False
+    if args.keep_session:
+        cfg.gologin.fresh_session = False
     # Only when actually asked for, either way round. Assigning the flag
     # unconditionally is how the config default stopped meaning anything:
     # `store_true` hands back False when the flag is absent, so a default of
