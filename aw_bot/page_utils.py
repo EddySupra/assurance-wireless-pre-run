@@ -1544,24 +1544,51 @@ def advance_screen(
     # modal, no new headings. Waiting first means the first look lands on a
     # screen that has actually reacted.
     if settle > 0:
-        LOG.info("%s: waiting %.0fs for the form to respond", step_label, settle)
-        end = time.time() + settle
-        while True:
-            left = end - time.time()
-            if left <= 0:
-                break
-            time.sleep(min(0.5, left))
-            # Not held perfectly still: this is the stretch the form is being
-            # watched over, and a viewport with no pointer events in it at all
-            # is its own signal.
-            if cfg.human_like:
-                _idle_signs_of_life(sb, cfg)
+        # Hands off the browser completely while the form works.
+        #
+        # Not a pause with idling in it -- nothing at all. No execute_script,
+        # no ActionChains, no driver traffic of any kind.
+        #
+        # The reason is the one measurement that separates this from every
+        # other theory: the same profile, the same proxy and the same machine
+        # complete this lookup by hand, and fail under automation. So the
+        # difference is not the identity, it is what the driver does -- and
+        # what it does here is several hundred `Runtime.evaluate` round trips
+        # into the page (four checks, twice a second, for as long as the
+        # spinner turns) plus WebDriver-dispatched pointer events, during
+        # exactly the window the backend is deciding. A hand-run session
+        # produces none of that.
+        #
+        # Earlier versions filled this wait with pointer drift on the theory
+        # that stillness looks robotic. That reasoning applies while a person
+        # is *using* a page; it does not apply to a browser nobody is touching
+        # while it waits for a server, which is genuinely still.
+        LOG.info(
+            "%s: hands off for %.0fs while the form works -- no driver "
+            "traffic at all", step_label, settle,
+        )
+        time.sleep(settle)
 
     budget = timeout or cfg.page_timeout
     deadline = time.time() + budget
     # An absolute stop, so "still spinning" cannot wait forever.
     hard_deadline = time.time() + max(budget, cfg.max_busy_wait)
     announced_busy = False
+
+    # How often to look at the screen while it works.
+    #
+    # This used to be every 0.25-0.5s, and each pass ran four separate
+    # `execute_script` calls -- the modal text, the Turnstile state, the busy
+    # spinner, the headings. Eight CDP round trips a second into the page, for
+    # as long as the spinner turned. Over a ninety-second lookup that is
+    # several hundred evaluations arriving while the backend decides, and a
+    # hand-run browser produces none of them.
+    #
+    # A form that takes tens of seconds to answer does not need watching twice
+    # a second. Looking every couple of seconds costs nothing in responsiveness
+    # and cuts the driver's footprint during the critical window by an order of
+    # magnitude.
+    poll = 2.0
 
     while time.time() < deadline and time.time() < hard_deadline:
         # The app reports rejections through a modal, so check for one before
@@ -1572,7 +1599,7 @@ def advance_screen(
             # verdict -- the real answer comes after it closes.
             if is_progress_modal(modal):
                 LOG.info("Waiting on the form: %s", modal)
-                time.sleep(0.5)
+                time.sleep(poll)
                 continue
             if is_throttle_message(modal):
                 raise ThrottledError(f"{step_label}: the host is refusing us -- {modal}")
@@ -1581,7 +1608,7 @@ def advance_screen(
                 # A question, not a refusal. Answering it is how the screen
                 # gets past -- the run used to stop here having succeeded.
                 if answer_confirm_modal(sb, modal, cfg, step_label):
-                    time.sleep(0.5)
+                    time.sleep(poll)
                     continue
                 # The answer did not go in. If the dialog has gone anyway,
                 # something else closed it and the screen is free to move on;
@@ -1591,7 +1618,7 @@ def advance_screen(
                         "%s: the confirmation closed on its own; carrying on",
                         step_label,
                     )
-                    time.sleep(0.5)
+                    time.sleep(poll)
                     continue
                 raise PageMismatchError(
                     f"{step_label}: a confirmation is waiting for an answer that "
@@ -1659,7 +1686,7 @@ def advance_screen(
                 )
             # Answered: give the form its budget back to finish the job.
             deadline = min(time.time() + budget, hard_deadline)
-            time.sleep(0.5)
+            time.sleep(poll)
             continue
 
         # Work in progress is not a stalled screen: keep the clock rolling for
@@ -1693,7 +1720,7 @@ def advance_screen(
                         # screen its budget back to finish the job.
                         deadline = min(time.time() + budget, hard_deadline)
                         announced_busy = True
-                        time.sleep(0.5)
+                        time.sleep(poll)
                         continue
                     raise BotBlockedError(
                         f"{step_label}: Cloudflare's Turnstile script will not "
@@ -1724,7 +1751,7 @@ def advance_screen(
                     )
                 announced_busy = True
             deadline = min(time.time() + budget, hard_deadline)
-            time.sleep(0.5)
+            time.sleep(poll)
             continue
 
         after = screen_headings(sb)
@@ -1734,11 +1761,11 @@ def advance_screen(
                 # keep waiting for the screen underneath to actually change.
                 LOG.info("Consent dialog opened over the form; dismissing it")
                 dismiss_consent(sb)
-                time.sleep(0.5)
+                time.sleep(poll)
                 continue
             LOG.info("Advanced to: %s", after)
             return after
-        time.sleep(0.25)
+        time.sleep(poll)
 
     # Nothing moved, and the form is no longer working on it. *Now* an
     # unresolved Turnstile is worth reporting: the widget is on the screen,

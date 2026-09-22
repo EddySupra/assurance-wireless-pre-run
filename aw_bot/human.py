@@ -982,6 +982,40 @@ def _offset_within(back: int, forward: int, reach: int, minimum: int) -> int:
     return random.randint(minimum, forward)
 
 
+def _will_receive_keys(sb, element, timeout: float = 1.0) -> bool:
+    """Will keystrokes sent right now reach this field?
+
+    Two separate questions, and asking only the first is what let eight
+    characters of a security answer go into another window.
+
+    `document.activeElement === element` says the caret is in this field
+    *within the document*. It keeps saying so while another window is in
+    front, because it describes the document and not the desktop.
+
+    `document.hasFocus()` is the one that answers the real question: true only
+    when this document holds the operating system's focus, which is where
+    pyautogui's keystrokes actually go. Both have to hold.
+
+    Polled rather than read once: focus settles a moment after a real click,
+    and an Angular screen can move it again while it renders.
+    """
+    deadline = time.time() + timeout
+    while True:
+        try:
+            state = sb.execute_script(
+                "return {inField: document.activeElement === arguments[0],"
+                "        windowFocused: document.hasFocus()};",
+                element,
+            ) or {}
+            if state.get("inField") and state.get("windowFocused"):
+                return True
+        except WebDriverException:
+            return False
+        if time.time() >= deadline:
+            return False
+        time.sleep(0.1)
+
+
 def _reach_framed(sb, selector: str, cfg: RunConfig) -> bool:
     """Scroll the outer page so a field inside the enrollment frame is reachable.
 
@@ -1128,6 +1162,22 @@ def _real_type_once(sb, element, selector: str, value: str, cfg: RunConfig) -> b
         return False
 
     pause(cfg, 0.25)
+
+    # Check the keystrokes will land here before sending a single one.
+    #
+    # Detecting this afterwards -- by reading the value back -- is too late in
+    # the way that matters: by then the characters have gone wherever the
+    # focus actually was. On these screens that is an applicant's SSN or
+    # security answers, and "wherever" is any window on the desktop.
+    if not _will_receive_keys(sb, element):
+        _blame(
+            cfg,
+            "the caret is not in this field, or the browser window is not in "
+            "front, so nothing was typed",
+            selector,
+        )
+        return False
+
     real_input.clear_field(cfg)
 
     if not real_input.type_text(value, cfg):
