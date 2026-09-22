@@ -1004,13 +1004,29 @@ def _will_receive_keys(sb, element, timeout: float = 1.0) -> bool:
         try:
             state = sb.execute_script(
                 "return {inField: document.activeElement === arguments[0],"
-                "        windowFocused: document.hasFocus()};",
+                "        windowFocused: document.hasFocus(),"
+                "        framed: window.self !== window.top};",
                 element,
             ) or {}
-            if state.get("inField") and state.get("windowFocused"):
-                return True
         except WebDriverException:
             return False
+
+        if state.get("inField"):
+            # `hasFocus` is only meaningful at the top level.
+            #
+            # Inside a cross-origin iframe it describes *that* document, and
+            # reports false for reasons that have nothing to do with where
+            # keystrokes will land -- so requiring it here rejected every
+            # field on the enrollment form, which is entirely inside one.
+            # Measured: three consecutive refusals on `#firstName` with the
+            # window plainly in front and the caret plainly in the field.
+            #
+            # In a frame the caret being in the field is the best answer
+            # available, and `focus_window` has already confirmed the window
+            # itself is foregrounded. At the top level, demand both.
+            if state.get("framed") or state.get("windowFocused"):
+                return True
+
         if time.time() >= deadline:
             return False
         time.sleep(0.1)
