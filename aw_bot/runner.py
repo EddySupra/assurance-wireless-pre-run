@@ -352,9 +352,7 @@ def _attempt_one(
     # is a different window, in a different place, with no frame open yet.
     real_input.reset_for_new_session()
 
-    # A different person, near enough, fills in each lead. Without this every
-    # lead in a batch is paced from the same distribution, so the batch has
-    # one rhythm however wide that distribution is.
+    # A different person, near enough, fills in each lead.
     LOG.debug("[w%d] This lead is filled at %.2fx pace", worker_id, human.new_operator())
 
     try:

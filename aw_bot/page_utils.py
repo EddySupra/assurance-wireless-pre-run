@@ -646,17 +646,10 @@ def first_visible(sb, selectors) -> str | None:
 _STORAGE_REPORTED = False
 
 
-def _report_frame_storage(sb, cfg: RunConfig, step_label: str) -> None:
-    """Check third-party storage in the enrollment frame, once per run.
-
-    Opt-in, because the check is not passive: it writes a probe cookie, a
-    localStorage key and a sessionStorage key into the page and reads them
-    back. That is a real modification of the document the form runs in, made
-    on the screen the site cares most about, and it buys nothing on a run
-    that is not being diagnosed.
-    """
+def _report_frame_storage(sb, step_label: str) -> None:
+    """Check third-party storage in the enrollment frame, once per run."""
     global _STORAGE_REPORTED
-    if _STORAGE_REPORTED or not getattr(cfg, "trace_turnstile", False):
+    if _STORAGE_REPORTED:
         return
     _STORAGE_REPORTED = True
     try:
@@ -704,7 +697,7 @@ def enter_enrollment_frame(sb, cfg: RunConfig, step_label: str) -> str:
     # Turnstile runs in here, not out there, and so do its prerequisites.
     # Checked once per run: the answer is a property of the browser and the
     # frame, not of the screen, and repeating it on every step would be noise.
-    _report_frame_storage(sb, cfg, step_label)
+    _report_frame_storage(sb, step_label)
 
     # The observer installs on new documents, and this frame is a document the
     # session did not navigate itself. Running it directly is idempotent.
@@ -1457,7 +1450,12 @@ def is_busy(sb) -> bool:
 
 
 def advance_screen(
-    sb, cfg: RunConfig, step_label: str, selectors, timeout: int | None = None
+    sb,
+    cfg: RunConfig,
+    step_label: str,
+    selectors,
+    timeout: int | None = None,
+    settle: float = 0.0,
 ) -> list[str]:
     """Click Continue and confirm the wizard actually moved on.
 
@@ -1538,6 +1536,26 @@ def advance_screen(
     # which arrives untrusted on the screen that is being scored.
     bring_framed_element_into_view(sb, selector, cfg)
     human_click(sb, selector, cfg)
+
+    # Sit with the screen before starting to judge it.
+    #
+    # The loop below works out what the form is doing by looking at it, and in
+    # the moment after a click there is nothing to see yet: no spinner, no
+    # modal, no new headings. Waiting first means the first look lands on a
+    # screen that has actually reacted.
+    if settle > 0:
+        LOG.info("%s: waiting %.0fs for the form to respond", step_label, settle)
+        end = time.time() + settle
+        while True:
+            left = end - time.time()
+            if left <= 0:
+                break
+            time.sleep(min(0.5, left))
+            # Not held perfectly still: this is the stretch the form is being
+            # watched over, and a viewport with no pointer events in it at all
+            # is its own signal.
+            if cfg.human_like:
+                _idle_signs_of_life(sb, cfg)
 
     budget = timeout or cfg.page_timeout
     deadline = time.time() + budget
@@ -1663,34 +1681,28 @@ def advance_screen(
                 )
 
             if not announced_busy:
-                # An empty `<ngx-turnstile>` is not proof of a bot wall.
-                #
-                # This used to give up here, on the reasoning that no widget
-                # means no token can ever arrive. That reasoning skipped a
-                # step: the widget is `appearance="interaction-only"`, which
-                # means it deliberately renders nothing while Cloudflare is
-                # satisfied. An empty container is what *success* looks like
-                # in that mode, and it is indistinguishable from a script
-                # that failed to load.
-                #
-                # Meanwhile the spinner on this screen is the eligibility
-                # lookup, which genuinely runs for minutes. So the old check
-                # was capable of killing a lookup that was working, and
-                # reporting a bot wall that had never been demonstrated --
-                # the exact mistake an earlier version of this file made and
-                # documented, reintroduced from the other direction.
-                #
-                # Say what is there, then let the busy budget run. The verdict
-                # is reached below, once the form actually stops working.
+                # A spinner with no widget behind it is the failure this form
+                # dies of: `<ngx-turnstile>` sits empty because Cloudflare's
+                # script never executed, so no token can ever arrive and the
+                # button it gates spins until something gives up. Try to get
+                # the script loaded rather than waiting out a clock for an
+                # event that cannot happen.
                 if not status.get("rendered") and not status.get("apiLoaded"):
-                    LOG.info(
-                        "%s: the form is busy and Cloudflare's Turnstile API "
-                        "has not defined itself. In interaction-only mode that "
-                        "is also what a satisfied widget looks like, so this "
-                        "waits on the lookup (up to %.0fs) rather than calling "
-                        "it a block.", step_label, cfg.max_busy_wait,
+                    if turnstile.ensure_api_loaded(sb, step_label):
+                        # The app's own component can render now. Give the
+                        # screen its budget back to finish the job.
+                        deadline = min(time.time() + budget, hard_deadline)
+                        announced_busy = True
+                        time.sleep(0.5)
+                        continue
+                    raise BotBlockedError(
+                        f"{step_label}: Cloudflare's Turnstile script will not "
+                        f"load in this browser, so the form's widget was never "
+                        f"created and its Continue button stays disabled. The "
+                        f"spinner is waiting for a token that cannot arrive."
                     )
-                elif status.get("rendered") and not status.get("token"):
+
+                if status.get("rendered") and not status.get("token"):
                     # A widget really is up and has not answered yet. Worth
                     # saying, and worth waiting for -- but no longer worth
                     # nudging: a reset here is what used to discard a token

@@ -242,8 +242,7 @@ def create_disposable_profile(cfg: RunConfig, worker_id: int = 1) -> tuple[str, 
 
     LOG.info("[w%d] Created profile %s (%s, os=%s)", worker_id, profile_id, name, os_choice)
 
-    if cfg.gologin.freshen_user_agent:
-        _freshen_user_agent(gl, profile_id, worker_id)
+    _freshen_user_agent(gl, profile_id, worker_id)
 
     try:
         gl.addGologinProxyToProfile(
@@ -286,17 +285,7 @@ def _pick_os(allowed) -> str:
 
 
 def _freshen_user_agent(gl, profile_id: str, worker_id: int) -> None:
-    """Move the profile's user agent up to the browser version GoLogin knows.
-
-    OFF BY DEFAULT, and the reason is the flaw in the paragraph below: this
-    asks GoLogin for *its* latest browser version, which is not necessarily
-    the Orbita build installed on this machine. When the two differ it does
-    not fix a contradiction, it creates one -- a profile claiming a Chrome
-    that the binary underneath it is not -- and that is a far louder signal
-    than the slightly-old user agent it was meant to replace.
-
-    The original reasoning, kept because the problem it describes is real
-    even though this was the wrong fix for it:
+    """Move the profile's user agent up to the browser version it will run as.
 
     GoLogin's generator picks a user agent from its own pool, and that pool
     lags the Orbita build the profile is actually launched with. The result is

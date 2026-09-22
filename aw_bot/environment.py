@@ -347,29 +347,6 @@ def audit(sb, cfg=None, worker_id: int = 1) -> dict:
     if webgl:
         LOG.debug("[w%d] GPU: %s / %s", worker_id, webgl.get("vendor"), webgl.get("renderer"))
 
-    # The one contradiction the page cannot show you.
-    #
-    # Everything in `check` compares the browser's self-reports against each
-    # other, so a profile whose user agent and client hints were rewritten
-    # together stays perfectly consistent -- and still lies, because the
-    # binary actually running is a different Chrome. That difference shows up
-    # in TLS and HTTP/2 fingerprints, in engine behaviour, in everything the
-    # UA cannot control. The driver knows the real version; ask it.
-    try:
-        caps = getattr(getattr(sb, "driver", sb), "capabilities", {}) or {}
-        real = str(caps.get("browserVersion") or caps.get("version") or "")
-        claimed = _chrome_major(ua)
-        if real and claimed and real.split(".")[0] != claimed:
-            LOG.warning(
-                "[w%d] Fingerprint contradiction: the profile's user agent "
-                "says Chrome %s but the browser actually running is %s. "
-                "Anything comparing the two -- or comparing either against "
-                "the TLS handshake -- sees a browser misrepresenting itself.",
-                worker_id, claimed, real,
-            )
-    except Exception as exc:
-        LOG.debug("[w%d] Could not compare the UA to the binary: %s", worker_id, exc)
-
     for problem in check(identity, cfg):
         LOG.warning("[w%d] Fingerprint contradiction: %s", worker_id, problem)
 

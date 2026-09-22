@@ -454,13 +454,8 @@ def _viewport_origin(sb) -> dict | None:
     return origin
 
 
-# Why the last aim was refused, for the caller to report.
-#
-# `screen_point` says no for five quite different reasons -- no viewport, no
-# size, off-screen, hit test blocked, hit test errored -- and returning a bare
-# None collapses them into one unhelpful message at the call site. Each needs
-# a different answer, and finding out which one fired meant re-running with
-# --verbose, twice.
+# Why the last aim was refused, so the caller can say which of the five
+# reasons fired instead of printing one generic sentence for all of them.
 _last_refusal: str = ""
 
 
@@ -481,20 +476,18 @@ def screen_point(sb, element) -> tuple[int, int] | None:
     Returns a point somewhere inside the element rather than dead centre --
     people do not click the exact middle of a button every time.
     """
-    global _last_refusal
-    _last_refusal = ""
     try:
         origin = _viewport_origin(sb)
         box = sb.execute_script(_ELEMENT_BOX_JS, element)
     except Exception as exc:
-        _refuse(f"could not read the element's coordinates ({exc})")
+        _refuse(f"could not read its coordinates ({exc})")
         return None
 
     if not origin:
-        _refuse("the viewport's position on screen could not be read")
+        _refuse("the viewport position could not be read")
         return None
     if not box or not box.get("w") or not box.get("h"):
-        _refuse("the element has no width or height, so it is not laid out")
+        _refuse("it has no width or height, so it is not laid out")
         return None
 
     # Aim at the part of the element that is actually on screen.
@@ -530,9 +523,7 @@ def screen_point(sb, element) -> tuple[int, int] | None:
     if visible_w < 4 or visible_h < 4:
         _refuse(
             f"only {max(visible_w, 0):.0f}x{max(visible_h, 0):.0f} px of it is "
-            f"inside the {origin['w']}x{origin['h']} viewport, so there is "
-            f"nothing to aim at -- it is scrolled off, or the window is "
-            f"smaller than the page expects"
+            f"inside the {origin['w']}x{origin['h']} viewport"
         )
         return None
 
@@ -553,8 +544,7 @@ def screen_point(sb, element) -> tuple[int, int] | None:
     if not hit.get("hit"):
         _refuse(
             f"{hit.get('what') or 'something'} is drawn over it at that point, "
-            f"so a real click would hit that instead -- silently, because the "
-            f"click itself would succeed"
+            f"so a real click would hit that instead"
         )
         return None
 

@@ -343,39 +343,24 @@ def _source(cfg=None) -> str:
 
 
 def install(sb, cfg=None) -> bool:
-    """Put the observer on every document this browser opens. Opt-in only.
+    """Put the observer on every document this browser opens from now on.
 
-    Off unless --trace-turnstile asks for it, and that is the whole point of
-    this module's default: `state()` reads the DOM and needs nothing injected.
-
-    What the observer costs is easy to underestimate. It runs on every
-    document, wraps `console.error`, installs error listeners, leaves a
-    `setInterval` running and -- when diagnosing -- fetches Cloudflare's own
-    script from the page. On the SeleniumBase backends the stealth layer
-    masks a patched native's `toString`; on GoLogin it is deliberately off,
-    because an Orbita profile is an ordinary browser and the patches were the
-    only thing left to detect. So on the backend this project actually uses,
-    every one of those patches is visible to anything that looks.
-
-    Which inverts the trade. A watcher that makes the session more detectable
-    is not paying for itself on a run that needs to get through -- it is the
-    thing being detected. Diagnose with it; do not run with it.
+    Called once per session, before the first navigation, so it is in place
+    when the enrollment frame eventually injects the API script. Returns
+    whether it took -- a driver without CDP cannot do this, and that is worth
+    knowing rather than discovering later as silence.
     """
-    if not getattr(cfg, "trace_turnstile", False):
-        LOG.debug("Turnstile observer not installed; reading the DOM instead")
-        return False
-
     driver = getattr(sb, "driver", sb)
     if not hasattr(driver, "execute_cdp_cmd"):
         LOG.debug("No CDP on this driver; Turnstile will be read from the DOM only")
         return False
-    LOG.warning(
-        "Turnstile tracing is on. It patches console.error, installs an "
-        "accessor on window.turnstile and leaves a timer running in every "
-        "document -- all of it visible on a GoLogin profile, where the "
-        "stealth layer that would mask it is deliberately off. Use it to "
-        "diagnose, never for a run that needs to succeed."
-    )
+    if getattr(cfg, "trace_turnstile", False):
+        LOG.warning(
+            "Turnstile tracing is on. It installs an accessor on "
+            "window.turnstile, which is what hooking the API looks like and "
+            "which Cloudflare's loader can refuse to initialise against. Use "
+            "it to diagnose, not for a run that needs to succeed."
+        )
     try:
         driver.execute_cdp_cmd(
             "Page.addScriptToEvaluateOnNewDocument", {"source": _source(cfg)}
@@ -388,15 +373,13 @@ def install(sb, cfg=None) -> bool:
 
 
 def install_now(sb, cfg=None) -> bool:
-    """Install into the document that is already loaded. Opt-in, as install().
+    """Install into the document that is already loaded.
 
     `install()` only affects documents created after it runs, so a frame that
     was navigated before the session got set up -- or one reached through
     --frame-direct -- would otherwise never be observed. Running the same
     script directly is idempotent: it checks its own marker first.
     """
-    if not getattr(cfg, "trace_turnstile", False):
-        return False
     try:
         sb.execute_script(_source(cfg))
         return True
@@ -646,7 +629,7 @@ def _report_page_errors(sb, step_label: str, status: dict | None = None) -> None
                 LOG.error("  -> %s", meaning)
 
 
-def ensure_api_loaded(sb, step_label: str, timeout: float = 20.0, cfg=None) -> bool:
+def ensure_api_loaded(sb, step_label: str, timeout: float = 20.0) -> bool:
     """Say why there is no Turnstile API, and repair it only where that is safe.
 
     Returns whether `window.turnstile` exists afterwards.
@@ -670,33 +653,27 @@ def ensure_api_loaded(sb, step_label: str, timeout: float = 20.0, cfg=None) -> b
     recover from. So a second copy is only injected when the first one left no
     trace at all, which is the one case where the duplicate guard cannot fire.
     """
-    trace = bool(getattr(cfg, "trace_turnstile", False)) if cfg else False
-
     status = diagnose(sb)
     if status.get("apiLoaded"):
         return True
 
     # Ask whether the network can even reach Cloudflare, so the report below
     # can tell a blocked request from a refused initialisation.
-    # The reachability probe fetches Cloudflare's own script from the page, so
-    # it is a request the site would not otherwise make and Cloudflare would
-    # certainly see. Worth it while diagnosing, not worth it on a run that has
-    # to get through -- so it follows --trace-turnstile like the rest.
-    probe = "not checked"
-    if trace:
-        try:
-            sb.execute_script(_PROBE_JS)
-            deadline = time.time() + 12.0
-            while time.time() < deadline:
-                answered = (diagnose(sb) or {}).get("probe")
-                if answered and answered != "pending":
-                    break
-                time.sleep(0.4)
-        except Exception:
-            pass
-        probe = (diagnose(sb) or {}).get("probe") or "not answered"
-
+    # Wait for the probe to actually answer. One second was not enough through
+    # a residential proxy, and a report of "reachability=pending" says nothing
+    # about the thing it was asked to settle.
+    try:
+        sb.execute_script(_PROBE_JS)
+        deadline = time.time() + 12.0
+        while time.time() < deadline:
+            probe = (diagnose(sb) or {}).get("probe")
+            if probe and probe != "pending":
+                break
+            time.sleep(0.4)
+    except Exception:
+        pass
     status = diagnose(sb)
+    probe = status.get("probe") or "not answered"
 
     if status.get("scriptTag"):
         # The app's own script tag is in the page and `window.turnstile` is
@@ -720,21 +697,16 @@ def ensure_api_loaded(sb, step_label: str, timeout: float = 20.0, cfg=None) -> b
         )
         timing = status.get("scriptTiming")
         if timing:
-            # Sizes only, and only as a weak signal.
-            #
-            # A cross-origin response without `Timing-Allow-Origin` -- which
-            # is what challenges.cloudflare.com sends -- has its transfer and
-            # body sizes zeroed by the browser for privacy. So zero here does
-            # NOT mean the bytes were blocked, and an earlier version of this
-            # message said exactly that. Measured against a run where
-            # `window.turnstile` was demonstrably defined: transferred 0,
-            # decoded 0. The only honest reading is that the request happened
-            # and its size is not observable from here.
             LOG.error(
-                "%s: the script request completed in %sms (sizes are hidden "
-                "for cross-origin responses, so they say nothing about "
-                "whether it was blocked).",
-                step_label, timing.get("durationMs"),
+                "%s: the script request finished in %sms having transferred %s "
+                "byte(s) (decoded %s). %s",
+                step_label, timing.get("durationMs"), timing.get("transferred"),
+                timing.get("decoded"),
+                "Nothing arrived, so it was answered and discarded before it "
+                "could run -- which is what a COEP/CORP block looks like."
+                if not timing.get("decoded")
+                else "The body did arrive, so it ran and chose not to "
+                     "initialise rather than being blocked.",
             )
         else:
             LOG.error(

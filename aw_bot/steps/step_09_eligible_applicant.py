@@ -36,6 +36,12 @@ CONTINUE_SELECTORS = (
 # renames it to something more obvious.
 APPLICANT_HINTS = ("bqp", "applicant", "eligible", "benefit")
 
+# Seconds to sit with the screen after pressing Continue, before starting to
+# judge what it is doing. Immediately after the click there is nothing to see
+# yet -- no spinner, no modal, no new headings -- so the first look otherwise
+# lands on a screen that has not reacted.
+SETTLE_AFTER_CONTINUE = 30.0
+
 # Seconds to wait for the eligibility lookup behind this screen's Continue.
 #
 # Was 240, sized when the busy ceiling above it was 900s. Both were built on
@@ -78,7 +84,11 @@ def choose_eligible_applicant(
     # actually checking the applicant, so it waits on a backend lookup rather
     # than a client-side render. Measured, it does not answer inside the normal
     # page timeout -- and answering slowly is not the same as not answering.
-    advance_screen(sb, cfg, "Step 9", CONTINUE_SELECTORS, timeout=ELIGIBILITY_TIMEOUT)
+    advance_screen(
+        sb, cfg, "Step 9", CONTINUE_SELECTORS,
+        timeout=ELIGIBILITY_TIMEOUT,
+        settle=SETTLE_AFTER_CONTINUE,
+    )
     inventory = capture(sb, run_dir, STEP_NAME, save=cfg.save_artifacts)
     sb.switch_to_default_content()
     return inventory

@@ -57,21 +57,20 @@ _NEIGHBOURS = {
 
 # The person at the keyboard, for this lead.
 #
-# A run that draws every gap from the same range has one pace, and that pace
-# is the run's signature however wide the range is: over a whole batch the
-# distribution of every lead looks identical, because it is. Real operators
-# differ from each other, and the same operator differs across a morning.
+# A run that draws every gap from the same range has one pace, and that pace is
+# the run's signature however wide the range is: across a batch every lead's
+# distribution is identical, because it is. Real operators differ from each
+# other, and the same operator differs across a morning.
 #
-# So each lead gets its own tempo, and the gaps are drawn around it. Reset by
-# new_operator() when a lead starts.
+# Reset by new_operator() when a lead starts.
 _tempo = 1.0
 
 
 def new_operator() -> float:
     """Pick a pace for this lead. Returns it, mostly for the log."""
     global _tempo
-    # Log-normal around 1.0: most leads near the middle, a few notably
-    # brisker or more hesitant, and no hard edges at either end.
+    # Log-normal around 1.0: most leads near the middle, a few notably brisker
+    # or more hesitant, and no hard edges at either end.
     _tempo = min(2.2, max(0.55, random.lognormvariate(0.0, 0.26)))
     return _tempo
 
@@ -84,24 +83,24 @@ def _skewed(low: float, high: float, scale: float = 1.0) -> float:
     cluster a little above the minimum and trail off, with the occasional long
     one where attention wandered -- which is a log-normal, near enough.
 
-    The ceiling is respected most of the time but not absolutely: a hard
-    maximum that is never exceeded is itself a measurable edge, so a few per
-    cent of draws run past it.
+    The ceiling is respected most of the time but not absolutely: a maximum
+    that is never exceeded is itself a measurable edge, so a few per cent of
+    draws run past it.
     """
     low, high = float(low), float(high)
     if high <= low:
         return max(0.0, low * scale)
 
     spread = high - low
-    # Centre at about a third of the way up the range, tail to the right.
     draw = random.lognormvariate(math.log(spread * 0.38 + 1e-6), 0.55)
     value = low + draw
 
     if value > high:
-        # Usually rein it in; occasionally let it run long, the way a person
-        # who has glanced away does.
-        value = high - abs(random.gauss(0, spread * 0.12)) \
-            if random.random() > 0.06 else min(value, high + spread * 1.5)
+        value = (
+            high - abs(random.gauss(0, spread * 0.12))
+            if random.random() > 0.06
+            else min(value, high + spread * 1.5)
+        )
 
     return max(low * 0.7, value) * scale * _tempo
 
@@ -149,15 +148,14 @@ def rest(sb, cfg: RunConfig, kind: str = "short") -> None:
         return
 
     spent = 0.0
-    # How fidgety this particular wait is. Some waits are restless and some
-    # are almost still, and deciding that once per wait rather than per slice
-    # gives the whole pause a character instead of an average.
+    # How fidgety this particular wait is. Deciding it once per wait rather
+    # than per slice gives the pause a character instead of an average.
     restlessness = random.uniform(0.15, 0.75)
 
     while spent < total:
         # Uneven slices, so the gaps between movements are not themselves
-        # regular. Never a click: whatever is under the pointer while the
-        # form is thinking is not ours to press.
+        # regular. Never a click: whatever is under the pointer while the form
+        # is thinking is not ours to press.
         slice_ = min(_skewed(0.2, 1.4), total - spent)
         time.sleep(slice_)
         spent += slice_
@@ -168,18 +166,18 @@ def rest(sb, cfg: RunConfig, kind: str = "short") -> None:
 def idle_drift(sb, cfg: RunConfig) -> None:
     """Pointer movement of the kind a hand resting on a mouse produces.
 
-    Four different things happen here, chosen at random, because a hand at
-    rest does not do one thing. The previous version always did the same one
-    -- two or three equal-ish hops -- which over a run is as much a pattern as
-    not moving at all.
+    Four different things, chosen at random, because a hand at rest does not
+    do one thing. The version this replaces always did the same one -- two or
+    three equal-ish hops -- which over a run is as much a pattern as not
+    moving at all.
 
-        tremor    a few pixels of shake without going anywhere. The most
-                  common, because it is what a hand actually does.
-        settle    a short curved drift to somewhere nearby, decelerating,
-                  the way a hand repositions without thinking about it.
+        tremor    a few pixels of shake without going anywhere. The commonest,
+                  because it is what a hand actually does.
+        settle    a short curved drift to somewhere nearby, decelerating, the
+                  way a hand repositions without thinking about it.
         nudge     one small deliberate movement, as if adjusting grip.
         still     nothing. A hand is sometimes simply still, and a run that
-                  twitches on every single opportunity has its own rhythm.
+                  twitches at every opportunity has its own rhythm.
 
     Every failure is swallowed: this runs inside wait loops that must keep
     running whatever the page does.
@@ -188,9 +186,7 @@ def idle_drift(sb, cfg: RunConfig) -> None:
         return
 
     kind = random.choices(
-        ("tremor", "settle", "nudge", "still"),
-        weights=(46, 24, 20, 10),
-        k=1,
+        ("tremor", "settle", "nudge", "still"), weights=(46, 24, 20, 10), k=1
     )[0]
     if kind == "still":
         return
@@ -217,7 +213,6 @@ def idle_drift(sb, cfg: RunConfig) -> None:
                 cur_x = 2 * (1 - t) * t * control_x + t * t * target_x
                 cur_y = 2 * (1 - t) * t * control_y + t * t * target_y
                 chain.move_by_offset(int(cur_x - prev_x), int(cur_y - prev_y))
-                # Slower at the end, the way a hand arrives rather than stops.
                 chain.pause(random.uniform(0.008, 0.03) + t * 0.035)
                 prev_x, prev_y = cur_x, cur_y
 
@@ -531,8 +526,6 @@ def human_type(sb, selector: str, value: str, cfg: RunConfig) -> None:
     # So: pick a speed for this field and vary around it. The effect on any
     # single gap is small; the effect on the shape of the distribution is the
     # whole point.
-    # Around this lead's own pace, so a brisk operator types briskly and the
-    # field-to-field variation sits on top of that rather than replacing it.
     tempo = random.uniform(0.82, 1.28) * _tempo
     for index, char in enumerate(text):
         try:
@@ -677,16 +670,51 @@ def _commit_field(sb, element) -> None:
         pass
 
 
-def human_select(sb, selector: str, option_value: str, cfg: RunConfig) -> None:
-    """Choose a dropdown option, with a person's pacing around it.
+# What a <select> looks like from the outside, and where the wanted option is.
+_SELECT_STATE_JS = """
+const el = arguments[0], wanted = arguments[1];
+const values = Array.from(el.options).map(o => o.value);
+return {
+  count: values.length,
+  selected: el.selectedIndex,
+  target: values.indexOf(wanted),
+  value: el.value,
+  disabled: el.disabled
+};
+"""
 
-    The choice itself still goes through select_option_by_value rather than
-    clicking the rendered list: these are Angular-bound <select>s, and the
-    SeleniumBase call fires the change events the app listens for. Clicking
-    option elements directly is what breaks these forms.
+
+def human_select(sb, selector: str, option_value: str, cfg: RunConfig) -> None:
+    """Choose a dropdown option the way somebody at the keyboard does.
+
+    A native <select> is the one control this project was setting without ever
+    touching it: `select_option_by_value` assigns the value and dispatches the
+    events, so the page sees three dropdowns change with no click, no keypress
+    and no pointer within a hundred pixels of them. On a form that watches
+    interaction that is more conspicuous than any of the text fields, because
+    a text field at least had keystrokes.
+
+    So: focus it with a real click, walk to the option with the arrow keys,
+    and commit with Enter -- which is exactly how the control is designed to
+    be driven from a keyboard, and produces the same trusted key events and
+    the same single `change` a person produces.
+
+    Deliberately NOT by clicking the option elements. The docstring this
+    replaces was right about that: the rendered list of a native select is an
+    operating-system popup the DOM cannot address, and clicking <option> nodes
+    is what broke these forms before. Arrow keys drive the closed control.
+
+    Falls back to the scripted assignment whenever the real path cannot be
+    used or does not take, because a dropdown left unset fails the lead.
     """
     if cfg.human_like:
         sb.wait_for_element_visible(selector, timeout=cfg.page_timeout)
+
+    if real_input.should_use(cfg) and _real_select(sb, selector, option_value, cfg):
+        LOG.info("Chose %s on %s with the real keyboard", option_value, selector)
+        return
+
+    if cfg.human_like:
         _drift_to(sb, selector, cfg)
         pause(cfg, 0.3)
 
@@ -694,6 +722,63 @@ def human_select(sb, selector: str, option_value: str, cfg: RunConfig) -> None:
 
     if cfg.human_like:
         pause(cfg, 0.3)
+
+
+def _real_select(sb, selector: str, option_value: str, cfg: RunConfig) -> bool:
+    """Open the dropdown for real and arrow to the option. False means fall back."""
+    try:
+        element = sb.wait_for_element_visible(selector, timeout=cfg.page_timeout)
+        state = sb.execute_script(_SELECT_STATE_JS, element, str(option_value)) or {}
+    except WebDriverException as exc:
+        LOG.debug("Could not read %s before choosing: %s", selector, exc)
+        return False
+
+    target = state.get("target", -1)
+    if state.get("disabled") or target is None or target < 0:
+        # Not an option on this screen; the scripted path will report it.
+        return False
+
+    if state.get("value") == str(option_value):
+        return True  # already where we want it
+
+    if not _real_click(sb, element, selector, cfg):
+        return False
+
+    # Arrow from where it is to where it should be. A person scanning a list
+    # does not move at a constant rate, so the gaps vary and the last step or
+    # two are slower, the way they are when the right one comes into view.
+    steps = target - int(state.get("selected", 0) or 0)
+    key = Keys.ARROW_DOWN if steps > 0 else Keys.ARROW_UP
+    remaining = abs(steps)
+    if remaining > 40:
+        # A very long list is not walked one row at a time by anybody.
+        return False
+
+    try:
+        for index in range(remaining):
+            element.send_keys(key)
+            left = remaining - index
+            time.sleep(random.uniform(0.05, 0.16) + (0.12 if left <= 2 else 0.0))
+        # Commit. On an open native dropdown this is what closes it and fires
+        # `change`; on a focused closed one it is harmless.
+        element.send_keys(Keys.ENTER)
+    except WebDriverException as exc:
+        LOG.debug("Arrowing through %s failed: %s", selector, exc)
+        return False
+
+    pause(cfg, 0.3)
+
+    try:
+        landed = sb.execute_script("return arguments[0].value;", element)
+    except WebDriverException:
+        return False
+    if landed != str(option_value):
+        LOG.debug(
+            "%s ended on %r rather than %r; using the scripted path",
+            selector, landed, option_value,
+        )
+        return False
+    return True
 
 
 def _drift_to(sb, selector: str, cfg: RunConfig) -> None:
@@ -1013,28 +1098,6 @@ def _real_type_once(sb, element, selector: str, value: str, cfg: RunConfig) -> b
         return False
 
     pause(cfg, 0.25)
-
-    # Check the caret is in the field before sending a single keystroke.
-    #
-    # Detecting this afterwards -- by reading the value back -- is too late in
-    # the way that matters: by then the characters have already gone wherever
-    # the focus actually was. On these screens that could be an applicant's
-    # SSN, and "somewhere else" is any window on the desktop.
-    #
-    # It also catches a failure the hit test cannot. `elementFromPoint`
-    # accepts an ancestor of the target as a hit, so a click landing on a
-    # wrapper div around the input passes every check and still leaves the
-    # input unfocused -- which is what the repeated `#secretAnswer*` and
-    # `#firstName` failures look like.
-    if not _has_focus(sb, element):
-        _blame(
-            cfg,
-            "the click landed but the caret is not in the field, so nothing "
-            "was typed (focus is elsewhere)",
-            selector,
-        )
-        return False
-
     real_input.clear_field(cfg)
 
     if not real_input.type_text(value, cfg):
@@ -1057,42 +1120,6 @@ def _real_type_once(sb, element, selector: str, value: str, cfg: RunConfig) -> b
 
     LOG.debug("Real-typed into %s", selector)
     return True
-
-
-def _has_focus(sb, element, timeout: float = 1.0) -> bool:
-    """Will keystrokes sent now actually reach this field?
-
-    Two separate questions, and an earlier version of this asked only one of
-    them.
-
-    `document.activeElement === element` says the caret is in this field
-    *within the document*. It says nothing about whether the browser window
-    holds the operating system's focus -- and `activeElement` keeps happily
-    naming the field while another window is in front. So the check passed,
-    pyautogui typed, and twenty-one characters went to whatever was actually
-    foreground. That is the exact failure this function exists to prevent.
-
-    `document.hasFocus()` is the one that answers it: true only when this
-    document has system focus. Both have to hold.
-
-    Polled rather than read once: focus settles a moment after a real click,
-    and an Angular screen can move it again while it renders.
-    """
-    deadline = time.time() + timeout
-    while True:
-        try:
-            state = sb.execute_script(
-                "return {inField: document.activeElement === arguments[0],"
-                "        windowFocused: document.hasFocus()};",
-                element,
-            ) or {}
-            if state.get("inField") and state.get("windowFocused"):
-                return True
-        except WebDriverException:
-            return False
-        if time.time() >= deadline:
-            return False
-        time.sleep(0.1)
 
 
 def _field_holds(element, value, timeout: float = 2.0) -> bool:
