@@ -1,0 +1,21 @@
+gologin>=2025.1
+selenium>=4.20
+webdriver-manager>=4.0
+requests>=2.31
+python-dotenv>=1.0
+gspread>=6.0
+google-auth>=2.30
+
+# The --backend browserless path. Browserless v2 speaks CDP over a WebSocket
+# and dropped WebDriver, so aw_bot/cdp_bridge.py carries the frames itself.
+websockets>=12.0
+
+# Still used by the fallback --backend local / local-profile / remote paths.
+seleniumbase>=4.48.1
+
+# --real-input: drives this machine's own mouse and keyboard, so the events
+# the page sees are the operating system's rather than injected ones. Without
+# it that flag degrades to synthetic input with only a warning in the log,
+# which is the one failure mode you would not notice -- the run still works,
+# it just stops being the thing you asked for.
+pyautogui>=0.9.54

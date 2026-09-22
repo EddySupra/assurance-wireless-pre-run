@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ' *)",
+      "PowerShell(Set-Location \"C:\\\\Users\\\\casas\\\\OneDrive\\\\Desktop\\\\ASSURANCE WIRELESS PRE RUN\"; python run.py --test-lead 2>&1 | Select-String -Pattern \"Step 6|Entered|Selected|Clicking Continue|Advanced|Done\\\\.|STEP FAILED|Unexpected|Form errors\"; Write-Output \"exit=$LASTEXITCODE\")",
+      "Bash(grep -c 'move target out of bounds' artifacts/__TRACKED_VAR__/run.log)",
+      "Bash(grep -E 'Turnstile|issued a token|asked Turnstile' artifacts/__TRACKED_VAR__/run.log)",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:8191/v1\" -Method POST -Body '{\"cmd\":\"sessions.list\"}' -ContentType \"application/json\" -TimeoutSec 8 -UseBasicParsing; \"FlareSolverr RUNNING - HTTP $\\($r.StatusCode\\)\"; $r.Content.Substring\\(0,[Math]::Min\\(200,$r.Content.Length\\)\\) } catch { \"FlareSolverr NOT reachable at localhost:8191 -- $\\($_.Exception.Message\\)\" })"
+    ]
+  }
+}

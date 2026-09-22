@@ -1,0 +1,9 @@
+.env
+.session
+__pycache__/
+*.pyc
+.venv/
+artifacts/
+downloaded_files/
+credentials/
+.test_cursor
