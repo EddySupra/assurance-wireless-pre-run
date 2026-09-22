@@ -159,6 +159,26 @@ class ApplicationConfig:
     contact_method: str = "Email"
     print_preference: str = "Standard Print"
 
+    # "How do you qualify for California LifeLine Service?" -- the programme
+    # the applicant is enrolled in, ticked on the California LifeLine screen.
+    #
+    # Matched against the option's label text, so the wording only has to be
+    # distinctive rather than exact. The three listed first on that screen are
+    # Medicaid/Medi-Cal, CalFresh/SNAP and SSI; everything else is behind
+    # "Show More Programs" and needs that pressed first.
+    #
+    # This is a claim about the applicant, not a preference. It is a single
+    # setting because every lead in this sheet qualifies the same way -- the
+    # moment that stops being true it has to come from the sheet per lead,
+    # the way the DOB and SSN do, rather than staying here.
+    #
+    # Worth knowing: the form warns that a CalFresh card needs a purchase or
+    # ATM balance receipt dated within the last seven days as proof, which is
+    # the agent's problem at the document step rather than this run's.
+    qualifying_program: str = (
+        "CalFresh, Food Stamps or Supplemental Nutrition Assistance Program (SNAP)"
+    )
+
     # "Who is the Benefit Eligible Applicant?" -- the sheet holds one adult per
     # row, with that person's own DOB and SSN, so the applicant is always the
     # person applying rather than a child or dependent.
