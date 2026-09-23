@@ -406,7 +406,16 @@ def _attempt_one(
                 LOG.error("STEP FAILED for %s: %s", lead.label, exc)
                 _capture_failure(sb, cfg, run_dir)
                 _hold(cfg, sb, allow_hold)
-                return "failed", str(exc), verdict, False
+                # A failure on the public pages is worth another browser.
+                #
+                # Steps 1-5 are navigation: opening the site, pressing Apply
+                # Now, the ZIP check. Nothing there has looked at the
+                # applicant yet, so "Step 2: URL never reached /apply-now"
+                # says something went wrong with this session, not with this
+                # lead -- and another browser is exactly the right answer.
+                # Measured: a lead was thrown away on that error while the
+                # very next browser walked the same pages without trouble.
+                return "failed", str(exc), verdict, _before_the_form(str(exc))
             except Exception as exc:
                 gone = _browser_died(exc)
                 if gone:
@@ -469,6 +478,22 @@ _KNOWN_VERDICTS = frozenset({
 # Step 6 is the first screen that puts the applicant in front of the form. A
 # lead that got there was actually tried; one that fell over earlier was not.
 _FORM_STEP = 6
+
+
+def _before_the_form(detail: str) -> bool:
+    """Did this fail on the public pages, before the applicant was entered?
+
+    Those steps are navigation, so a failure there is a property of the
+    session rather than of the lead, and deserves a fresh browser. A failure
+    from step 6 on has the applicant's data in front of it and repeating it
+    would just re-submit them.
+
+    A failure naming no step at all is left alone: `_browser_died` already
+    covers the ones worth retrying, and guessing here would retry genuine
+    faults three times over.
+    """
+    match = _STEP_IN_DETAIL.search(detail or "")
+    return bool(match) and int(match.group(1)) < _FORM_STEP
 
 
 def _made_progress(outcome: str, verdict: str, detail: str) -> bool:

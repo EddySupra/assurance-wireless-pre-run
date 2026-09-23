@@ -86,6 +86,16 @@ class GoLoginConfig:
     # applies it in the browser rather than through an extension.
     disable_extensions: bool = True
 
+    # Ask GoLogin to rewrite a new profile's user agent to its latest
+    # browser version.
+    #
+    # Off, because "GoLogin's latest" and "the Orbita build on this
+    # machine" are not the same thing. When they differ the profile ends up
+    # claiming a Chrome the binary underneath it is not, which is a
+    # contradiction rather than a correction. The generated profile's own
+    # user agent already matches the browser it was generated for.
+    freshen_user_agent: bool = False
+
     # Build a brand-new profile for every lead instead of reusing the pool.
     #
     # Reusing eight saved profiles means eight identities and, more to the

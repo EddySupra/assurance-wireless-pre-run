@@ -242,7 +242,8 @@ def create_disposable_profile(cfg: RunConfig, worker_id: int = 1) -> tuple[str, 
 
     LOG.info("[w%d] Created profile %s (%s, os=%s)", worker_id, profile_id, name, os_choice)
 
-    _freshen_user_agent(gl, profile_id, worker_id)
+    if gl_cfg.freshen_user_agent:
+        _freshen_user_agent(gl, profile_id, worker_id)
 
     try:
         gl.addGologinProxyToProfile(
