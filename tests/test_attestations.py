@@ -79,8 +79,11 @@ def test_the_service_terms_box_has_two_honest_targets():
     """
     targets = step10._SIGNATURE_CHECKBOX
     assert isinstance(targets, tuple)
-    assert targets[0] == 'input[id="sigCheck"] + div.b-input'
-    assert targets[1] == 'label[for="sigCheck"]'
+    # Label first: measured on row 225, a click landed on div.b-input --
+    # elementFromPoint confirmed it -- and the input stayed ng-pristine,
+    # while the label activated it on the very next attempt.
+    assert targets[0] == 'label[for="sigCheck"]'
+    assert targets[1] == 'input[id="sigCheck"] + div.b-input'
     assert len(set(targets)) == len(targets)
 
 
@@ -142,7 +145,9 @@ def test_both_controls_are_answered_then_continued(monkeypatch):
 
     sb = _Sb(_READY, _DONE)
     assert step10._answer_attestations(sb, RunConfig(), _LEAD, Path(".")) is True
-    assert clicks == ['label[for="e911yes"]', 'input[id="sigCheck"] + div.b-input']
+    assert clicks == ['label[for="e911yes"]', 'label[for="sigCheck"]'], (
+        "one click per control, and the first target for each"
+    )
     assert advanced
 
 
@@ -240,14 +245,14 @@ def test_a_control_that_never_sets_tries_each_target_then_stops(monkeypatch):
     assert clicks == [step10._E911_LABEL.format(answer="yes")], clicks
 
 
-def test_the_service_terms_box_falls_back_to_its_label(monkeypatch):
-    """The painted box misses, the label lands -- and the lead continues."""
+def test_the_service_terms_box_falls_back_to_the_other_target(monkeypatch):
+    """One target is ignored, the other lands -- and the lead continues."""
     clicks = []
     _quiet(monkeypatch, clicks)
     monkeypatch.setattr(step10, "advance_screen", lambda *a, **k: None)
 
-    class _LabelOnly:
-        """Only a click on the label sets the signature."""
+    class _PaintedOnly:
+        """Only a click on the painted box sets the signature."""
 
         def __init__(self):
             self.reads = 0
@@ -259,18 +264,21 @@ def test_the_service_terms_box_falls_back_to_its_label(monkeypatch):
                 return dict(_READY)
             return dict(_READY, e911Yes=True, signature=self.signed)
 
-    sb = _LabelOnly()
+    sb = _PaintedOnly()
 
     def _click(_sb, selector, _cfg):
         clicks.append(selector)
-        if selector == 'label[for="sigCheck"]':
+        if selector == 'input[id="sigCheck"] + div.b-input':
             sb.signed = True
 
     monkeypatch.setattr(step10, "human_click", _click)
 
     assert step10._answer_attestations(sb, RunConfig(), _LEAD, Path(".")) is True
-    assert 'input[id="sigCheck"] + div.b-input' in clicks
-    assert 'label[for="sigCheck"]' in clicks
+    # The label is tried first and ignored here, so the painted box is
+    # reached -- the fallback works in both directions.
+    assert clicks.index('label[for="sigCheck"]') < clicks.index(
+        'input[id="sigCheck"] + div.b-input'
+    )
 
 
 def test_the_wait_is_counted_in_polls_not_wall_clock():

@@ -187,15 +187,27 @@ HOUSEHOLD_QUESTIONS = (
 # which is the familiar painted-checkbox pattern.
 ATTESTATIONS_HEADING = "attestations"
 _E911_LABEL = 'label[for="e911{answer}"]'
-# Two honest targets for the same control, tried in order. The painted box
-# is what is drawn on screen, but it is a small box in a narrow right-hand
-# column and clicking it does not always reach the input; the label owns the
-# checkbox through `for=` and is the native way to activate it. Unlike the
-# programme rows, this label is not a paragraph -- it contains only the
-# painted box -- so its centre is the box.
+# Two honest targets for the same control, label first.
+#
+# The painted box is what is drawn on screen and is the right target on the
+# programme and certification rows, whose labels are paragraphs. Here it is
+# not: measured on row 225, a click aimed at it was 36x36 px at 1386,684 in
+# a 1889x1021 viewport, on screen, and elementFromPoint confirmed the click
+# landed on div.b-input itself -- and the input stayed `ng-pristine`. So the
+# aim was never the problem; the painted div simply ignores the click, and
+# it does so only sometimes, which is why this took three leads to see.
+#
+# The label owns the checkbox through `for=` and is the native way to
+# activate it. Unlike the programme rows this label contains only the box,
+# so its centre is the box. It landed on the same lead the painted div had
+# just refused, and the run reached a verdict.
+#
+# The painted box stays as the fallback rather than being deleted: it has
+# worked on most leads, and two ways in are better than one for a control
+# the screen will not continue without.
 _SIGNATURE_CHECKBOX = (
-    'input[id="sigCheck"] + div.b-input',
     'label[for="sigCheck"]',
+    'input[id="sigCheck"] + div.b-input',
 )
 
 _ATTESTATIONS_STATE_JS = """
