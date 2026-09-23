@@ -167,6 +167,113 @@ HOUSEHOLD_QUESTIONS = (
     ("share income and living expenses", "household_shares_expenses"),
 )
 
+# "Attestations", the screen between the e-signature consent and the verdict.
+#
+# Two required controls, and they are built differently from each other and
+# from everything else on this site:
+#
+#   <label for="e911yes" class="btn btn-secondary">
+#     <input type="radio" id="e911yes" name="e911" required> Yes </label>
+#
+# a Bootstrap button-group toggle, where the label *is* the button and its
+# centre is the right place to click -- unlike the paragraph-sized labels
+# elsewhere, which is why those needed the painted div instead. And:
+#
+#   <label for="sigCheck" class="b-contain">
+#     <span></span>
+#     <input type="checkbox" name="signatureCheckbox" id="sigCheck" required>
+#     <div class="b-input"></div></label>
+#
+# which is the familiar painted-checkbox pattern.
+ATTESTATIONS_HEADING = "attestations"
+_E911_LABEL = 'label[for="e911{answer}"]'
+_SIGNATURE_CHECKBOX = 'input[id="sigCheck"] + div.b-input'
+
+_ATTESTATIONS_STATE_JS = """
+const yes = document.getElementById('e911yes');
+const no = document.getElementById('e911no');
+const sig = document.getElementById('sigCheck');
+return {
+  hasE911: !!(yes && no),
+  e911Yes: yes ? !!yes.checked : null,
+  e911No: no ? !!no.checked : null,
+  hasSignature: !!sig,
+  signature: sig ? !!sig.checked : null
+};
+"""
+
+
+def _is_attestations_screen(headings: list[str]) -> bool:
+    return ATTESTATIONS_HEADING in " | ".join(headings or []).lower()
+
+
+def _answer_attestations(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
+    """Acknowledge the Wi-Fi 911 limitation and the service terms.
+
+    Both controls are marked required and the screen will not continue
+    without them. Each is read back after the click, because a painted
+    control that swallows one leaves the screen refusing to move with no
+    validation message -- the same silent stall the signature fields
+    produced.
+    """
+    app = cfg.application
+
+    capture(sb, run_dir, f"{STEP_NAME}_attestations_as_found", save=cfg.save_artifacts)
+
+    state = sb.execute_script(_ATTESTATIONS_STATE_JS) or {}
+    if not state.get("hasE911") or not state.get("hasSignature"):
+        LOG.error(
+            "Step 10: the Attestations screen is not laid out as expected "
+            "(911 question: %s, signature box: %s). Stopping.",
+            state.get("hasE911"), state.get("hasSignature"),
+        )
+        return False
+
+    answer = (app.wifi_911_acknowledged or "").strip().lower()
+    if answer not in ("yes", "no"):
+        LOG.error(
+            "Step 10: wifi_911_acknowledged is %r; it has to be Yes or No.",
+            app.wifi_911_acknowledged,
+        )
+        return False
+
+    already = state.get("e911Yes") if answer == "yes" else state.get("e911No")
+    if already:
+        LOG.info("Step 10: the Wi-Fi 911 limitation is already acknowledged")
+    else:
+        LOG.info("Step 10: acknowledging the Wi-Fi 911 limitation -- %s", answer.title())
+        human_click(sb, _E911_LABEL.format(answer=answer), cfg)
+        pause(cfg, 0.4)
+
+    if not app.service_terms_agreed:
+        LOG.error(
+            "Step 10: service_terms_agreed is off, and this screen will not "
+            "continue without it. Stopping."
+        )
+        return False
+
+    if state.get("signature"):
+        LOG.info("Step 10: the service terms are already agreed")
+    else:
+        LOG.info("Step 10: agreeing to the Assurance Wireless service terms")
+        human_click(sb, _SIGNATURE_CHECKBOX, cfg)
+        pause(cfg, 0.4)
+
+    after = sb.execute_script(_ATTESTATIONS_STATE_JS) or {}
+    held = after.get("e911Yes") if answer == "yes" else after.get("e911No")
+    if not held or not after.get("signature"):
+        LOG.error(
+            "Step 10: the Attestations screen did not keep what was clicked "
+            "(911 acknowledgement=%s, service terms=%s). Stopping.",
+            held, after.get("signature"),
+        )
+        return False
+
+    capture(sb, run_dir, f"{STEP_NAME}_attestations", save=cfg.save_artifacts)
+    advance_screen(sb, cfg, "Step 10", CONTINUE_SELECTORS, settle=SETTLE_AFTER_CONTINUE)
+    return True
+
+
 # Find one household question by its own wording and report the Yes/No
 # controls that belong to *it*.
 #
@@ -249,7 +356,15 @@ return el ? !!el.checked : null;
 # Every certification box on the household screen. They are ticked, not read:
 # the screen will not continue without them.
 _TICK_CERTIFICATIONS_JS = r"""
-const boxes = Array.from(document.querySelectorAll('input[type=checkbox]'))
+/* Scoped to the form on purpose. This app keeps its mobile navigation menu
+   in a bare checkbox outside it --
+
+     <application><input id="menu-switch" type="checkbox"> ...
+
+   -- on every page, so an unscoped sweep ticks it, opens the nav drawer over
+   the form, and then insists it stay ticked. Nothing outside the form is a
+   certification. */
+const boxes = Array.from(document.querySelectorAll('form input[type=checkbox]'))
     .filter(b => !b.disabled);
 const out = [];
 for (const box of boxes) {
@@ -276,7 +391,7 @@ return out;
 """
 
 _ALL_TICKED_JS = """
-return Array.from(document.querySelectorAll('input[type=checkbox]'))
+return Array.from(document.querySelectorAll('form input[type=checkbox]'))
     .filter(b => !b.disabled)
     .every(b => b.checked);
 """
@@ -636,6 +751,8 @@ def classify_lead(sb, cfg: RunConfig, lead, run_dir: Path, *, submit: bool = Tru
             answered = ("phone choice", _choose_phone)
         elif _is_esign_screen(seen):
             answered = ("e-signature consent", _answer_esign)
+        elif _is_attestations_screen(headings):
+            answered = ("attestations", _answer_attestations)
         elif _is_household_screen(seen):
             answered = ("one-per-household certification", _answer_household)
 

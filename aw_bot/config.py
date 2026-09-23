@@ -203,6 +203,23 @@ class ApplicationConfig:
     # recordings type; the full-name field beside it is prefilled by the site.
     esign_initials: str = "XX"
 
+    # The Attestations screen, which carries two required controls.
+    #
+    # The first asks the applicant to acknowledge, under the heading
+    # "LIMITATIONS WITH WIFI CALLING SERVICE", that calling 911 over Wi-Fi
+    # Calling is not the same as calling it over the wireless service. It is
+    # an acknowledgement of something the application has already explained,
+    # not a claim about the household, and the form will not continue without
+    # an answer.
+    wifi_911_acknowledged: str = "Yes"
+
+    # The second is the Service Terms checkbox beside the signature, which the
+    # screen marks required. Ticking it agrees to the Assurance Wireless terms
+    # and conditions -- which is the same standing as everything else in this
+    # block, and defensible for the same single reason: this run stops at the
+    # screen that states the verdict and never submits.
+    service_terms_agreed: bool = True
+
     # The one-per-household certification, in the order the questions appear:
     #
     #   1. Do you live with another adult?                           -> Yes
