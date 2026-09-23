@@ -98,12 +98,29 @@ for (const box of boxes) {
      on screen, or the other way round when the site rewords an option. */
   const low = text.toLowerCase();
   if (text && (low.indexOf(wanted) !== -1 || wanted.indexOf(low) !== -1)) {
+    /* Aim at the painted control, not the label.
+
+       The label is the whole row -- the programme's name and its description
+       -- so its centre, which is where a click is aimed, lands on text rather
+       than on the box. That toggles the checkbox often enough to look like it
+       works and misses often enough to fail a lead, which is exactly what it
+       did: ticked on one run, refused to stay ticked on the next.
+
+       `div.b-input` is the box actually drawn on screen and sits immediately
+       after the input, the same arrangement the phone radios use. The id is
+       addressed with an attribute selector because these ids start with a
+       digit, which a bare `#id` cannot express. */
+    const painted = box.nextElementSibling;
+    const usePainted = painted && painted.classList.contains('b-input');
     return {
       id: box.id,
-      selector: 'label[for="' + box.id + '"]',
+      selector: usePainted
+        ? 'input[id="' + box.id + '"] + div.b-input'
+        : 'label[for="' + box.id + '"]',
+      aimedAt: usePainted ? 'painted control' : 'label',
       text: text,
       checked: box.checked,
-      visible: visible(label),
+      visible: visible(label) || visible(painted),
       options: seen
     };
   }
@@ -158,9 +175,20 @@ const boxes = Array.from(document.querySelectorAll('input[type=checkbox]'))
 const out = [];
 for (const box of boxes) {
   const label = box.id ? document.querySelector('label[for="' + box.id + '"]') : null;
+  /* The painted box rather than the label, for the reason given by the
+     programme selector above: a certification's label is a paragraph, and a
+     click aimed at its centre lands on the sentence rather than the control. */
+  const painted = box.nextElementSibling;
+  const usePainted = painted && painted.classList.contains('b-input');
+  let selector = null;
+  if (usePainted && box.id) {
+    selector = 'input[id="' + box.id + '"] + div.b-input';
+  } else if (box.id) {
+    selector = 'label[for="' + box.id + '"]';
+  }
   out.push({
     id: box.id || null,
-    selector: box.id ? 'label[for="' + box.id + '"]' : null,
+    selector: selector,
     text: ((label && label.innerText) || '').replace(/\s+/g, ' ').trim().slice(0, 120),
     checked: box.checked
   });
