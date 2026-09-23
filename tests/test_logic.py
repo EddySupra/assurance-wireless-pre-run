@@ -501,3 +501,69 @@ def test_a_real_rejection_is_not_a_confirmation():
     assert not is_confirm_modal("Important: The application can not be processed at this time.")
     assert not is_confirm_modal("")
 
+
+
+# -- the second way the wizard asks for proof --------------------------------
+
+from aw_bot.classify import (  # noqa: E402
+    NEED_DOCUMENTS as _ND, SCREENS as _SCREENS, TERMINAL as _TERMINAL,
+    classify_screen as _classify,
+)
+
+WORKSHEET_HEADINGS = ["California Household Worksheet"]
+WORKSHEET_BODY = (
+    "california household worksheet please read and acknowledge the "
+    "following: lifeline is a government program that provides discounted "
+    "phone service to qualified households. only one discount per household "
+    "is allowed."
+)
+
+
+def test_the_household_worksheet_is_need_documents():
+    """Reached when the applicant says they live with another adult who has
+    their own LifeLine benefit -- more than one household at the address,
+    which needs a worksheet to evidence it. Its breadcrumb reads
+    "... | Disclosures | Submit Proof", so it is the same answer as the
+    upload screen: approval is blocked on paperwork the agent lacks.
+    """
+    verdict, why = _classify(WORKSHEET_HEADINGS, WORKSHEET_BODY)
+    assert verdict == _ND
+    assert "Worksheet" in why
+
+
+def test_it_is_recognised_from_the_body_alone():
+    verdict, _ = _classify([], WORKSHEET_BODY)
+    assert verdict == _ND
+
+
+def test_the_upload_screen_still_classifies():
+    """The two share a verdict, and the older one must not be shadowed."""
+    verdict, why = _classify(
+        ["ALMOST DONE! Upload Your Qualifying and Identity Proof Documents"], ""
+    )
+    assert verdict == _ND
+    assert "Upload" in why
+
+
+def test_every_screen_declared_for_a_terminal_verdict_is_reachable():
+    """classify_screen used to build {verdict: screen}, keeping only the last
+    screen declared for each. Adding a second way to reach a bucket would
+    have silently disabled the first, and no test would have failed.
+    """
+    for verdict in _TERMINAL:
+        for screen in _SCREENS:
+            if screen.verdict != verdict:
+                continue
+            for signal in screen.headings:
+                got, _ = _classify([signal], "")
+                assert got == verdict, (screen.label, signal, got)
+            for signal in screen.body:
+                got, _ = _classify([], signal)
+                assert got == verdict, (screen.label, signal, got)
+
+
+def test_more_than_one_screen_shares_the_need_documents_verdict():
+    """Otherwise the regression above could not recur, and the test above
+    would be passing vacuously."""
+    sharing = [s for s in _SCREENS if s.verdict == _ND]
+    assert len(sharing) >= 2, [s.label for s in sharing]

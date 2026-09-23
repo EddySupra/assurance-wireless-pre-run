@@ -94,6 +94,18 @@ SCREENS = (
         headings=("upload your qualifying", "proof documents"),
         body=("upload your qualifying and identity proof documents",),
     ),
+    # The other way the wizard asks for proof. Reached when the applicant has
+    # said they live with another adult who has their own LifeLine benefit,
+    # which is more than one household at the address and needs a worksheet
+    # to evidence it. Its breadcrumb reads "... | Disclosures | Submit Proof",
+    # so it is the same answer as the upload screen: approval is blocked on
+    # paperwork the agent does not have.
+    Screen(
+        verdict=NEED_DOCUMENTS,
+        label="California Household Worksheet",
+        headings=("california household worksheet",),
+        body=("california household worksheet",),
+    ),
     Screen(
         verdict=GOOD,
         label="Income and Demographic Information",
@@ -106,15 +118,18 @@ SCREENS = (
 def classify_screen(headings: list[str], body: str) -> tuple[str, str]:
     """Return (verdict, why) for the screen the wizard stopped on."""
     lowered = (body or "").lower()
-    by_verdict = {screen.verdict: screen for screen in SCREENS}
 
+    # Every screen carrying the verdict, not one of them. The previous version
+    # built {verdict: screen}, which silently kept only the last screen
+    # declared for each -- so adding a second way to reach a bucket would have
+    # disabled the first without failing anything.
     for verdict in TERMINAL:
-        screen = by_verdict.get(verdict)
-        if screen is None:
-            continue
-        why = screen.match(headings or [], lowered)
-        if why:
-            return verdict, f"{screen.label} (matched {why})"
+        for screen in SCREENS:
+            if screen.verdict != verdict:
+                continue
+            why = screen.match(headings or [], lowered)
+            if why:
+                return verdict, f"{screen.label} (matched {why})"
 
     return UNKNOWN, f"unrecognised screen; headings: {headings or []}"
 
