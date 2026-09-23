@@ -572,6 +572,12 @@ def _answer_household(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
     """
     app = cfg.application
 
+    # Saved before anything is answered, not after. The selectors here were
+    # read off a recording rather than the live DOM, so the first refusal is
+    # the thing that says what the screen actually looks like -- and a
+    # refusal returns early, past the capture at the end.
+    capture(sb, run_dir, f"{STEP_NAME}_household_as_found", save=cfg.save_artifacts)
+
     for hint, field in HOUSEHOLD_QUESTIONS:
         answer = getattr(app, field)
         if not _answer_one_household_question(sb, cfg, hint, answer):
