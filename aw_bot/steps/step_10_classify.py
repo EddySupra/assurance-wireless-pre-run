@@ -167,6 +167,85 @@ HOUSEHOLD_QUESTIONS = (
     ("share income and living expenses", "household_shares_expenses"),
 )
 
+# Find one household question by its own wording and report the Yes/No
+# controls that belong to *it*.
+#
+# The generic radio machinery cannot do this. It keys on the group's `name`
+# attribute, and these three questions are three separate groups whose names
+# are not words anybody would guess; falling back to matching on the answer's
+# label picks the first "Yes" on the screen every time, which answers question
+# one three times over and leaves two and three untouched. So each question is
+# located by the text a person reads, and only the radios inside that
+# question's own block are candidates.
+#
+# The block is the smallest element containing both the question text and a
+# radio. If that block turns out to contain another question's text as well,
+# the screen is not laid out the way this expects and nothing is returned --
+# these are certifications about somebody's living arrangements, so a wrong
+# guess is worse than a stop.
+_HOUSEHOLD_QUESTION_JS = r"""
+const hint = arguments[0];
+const others = arguments[1] || [];
+const norm = (s) => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+let block = null;
+for (const el of document.querySelectorAll('div, li, section, fieldset, p, tr, td')) {
+  const text = norm(el.innerText);
+  if (!text.includes(hint)) continue;
+  if (!el.querySelector('input[type=radio]')) continue;
+  if (!block || el.innerText.length < block.innerText.length) block = el;
+}
+if (!block) return {found: false, reason: 'no block holds that question and a radio'};
+
+const text = norm(block.innerText);
+const bleed = others.filter(o => text.includes(o));
+if (bleed.length) {
+  return {found: false, reason: 'block also covers: ' + bleed.join('; '), text: text.slice(0, 200)};
+}
+
+const labelOf = (r) => {
+  let t = '';
+  if (r.id) {
+    const lab = document.querySelector('label[for="' + r.id + '"]');
+    if (lab) t = lab.innerText || '';
+  }
+  if (!t && r.closest('label')) t = r.closest('label').innerText || '';
+  return t.replace(/\s+/g, ' ').trim();
+};
+
+/* The painted div drawn over the hidden radio, same as everywhere else on
+   this site. A click aimed at the input itself lands on the div anyway. */
+const selectorFor = (r) => {
+  const painted = r.nextElementSibling;
+  if (r.id && painted && painted.classList.contains('b-input')) {
+    return 'input[id="' + r.id + '"] + div.b-input';
+  }
+  if (r.name && r.value && painted && painted.classList.contains('b-input')) {
+    return 'input[name="' + r.name + '"][value="' + r.value + '"] + div.b-input';
+  }
+  if (r.id) return 'label[for="' + r.id + '"]';
+  return null;
+};
+
+const radios = Array.from(block.querySelectorAll('input[type=radio]')).map(r => ({
+  id: r.id || null,
+  name: r.getAttribute('name') || null,
+  value: r.value,
+  checked: r.checked,
+  label: labelOf(r),
+  selector: selectorFor(r)
+}));
+return {found: true, text: text.slice(0, 200), radios: radios};
+"""
+
+# What a named radio holds now, read back after the click.
+_HOUSEHOLD_CHECKED_JS = """
+const id = arguments[0];
+const el = id ? document.getElementById(id) : null;
+return el ? !!el.checked : null;
+"""
+
+
 # Every certification box on the household screen. They are ticked, not read:
 # the screen will not continue without them.
 _TICK_CERTIFICATIONS_JS = r"""
@@ -427,6 +506,61 @@ def _answer_esign(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
     return True
 
 
+def _answer_one_household_question(sb, cfg: RunConfig, hint: str, answer: str) -> bool:
+    """Answer the household question matching `hint` with `answer`.
+
+    Returns whether that question ends up holding that answer. Everything
+    here refuses rather than approximates: the question is found by the words
+    a person reads, the option by the word they would click, and the result is
+    read back afterwards. All three questions are Yes/No, so a click that
+    lands on the wrong question's row is both easy to make and invisible.
+    """
+    others = [h for h, _ in HOUSEHOLD_QUESTIONS if h != hint]
+    found = sb.execute_script(_HOUSEHOLD_QUESTION_JS, hint, others) or {}
+
+    if not found.get("found"):
+        LOG.error(
+            "Step 10: could not find the household question %r on its own "
+            "(%s). Not answering it by position. Stopping.",
+            hint, found.get("reason") or "no reason given",
+        )
+        return False
+
+    radios = found.get("radios") or []
+    target = next(
+        (r for r in radios
+         if answer.strip().lower() in ((r.get("label") or "").strip().lower(),
+                                       (r.get("value") or "").strip().lower())),
+        None,
+    )
+    if target is None or not target.get("selector"):
+        LOG.error(
+            "Step 10: the household question %r offers no %r option; saw %s",
+            hint, answer, [(r.get("value"), r.get("label")) for r in radios],
+        )
+        return False
+
+    if target.get("checked"):
+        LOG.info("Step 10: %s -- already %s", hint, answer)
+        return True
+
+    LOG.info("Step 10: %s -- %s", hint, answer)
+    human_click(sb, target["selector"], cfg)
+    pause(cfg, 0.4)
+
+    # Read it back. A painted radio that swallowed the click leaves the
+    # certification saying the opposite of what was intended, or nothing.
+    if target.get("id"):
+        held = sb.execute_script(_HOUSEHOLD_CHECKED_JS, target["id"])
+        if held is False:
+            LOG.error(
+                "Step 10: %r did not stay on %r. Stopping rather than "
+                "certifying something unintended.", hint, answer,
+            )
+            return False
+    return True
+
+
 def _answer_household(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
     """Answer the one-per-household certification. False to stop.
 
@@ -440,17 +574,8 @@ def _answer_household(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
 
     for hint, field in HOUSEHOLD_QUESTIONS:
         answer = getattr(app, field)
-        radios = read_radios(sb)
-        if not radios:
-            LOG.error("Step 10: the household screen has no answerable questions")
+        if not _answer_one_household_question(sb, cfg, hint, answer):
             return False
-        if not answer_radio(sb, radios, hint, (hint,), answer, cfg):
-            LOG.error(
-                "Step 10: could not answer %r with %r. Options were: %s",
-                hint, answer, [r.get("label") for r in radios],
-            )
-            return False
-        LOG.info("Step 10: %s -- %s", hint, answer)
         pause(cfg, 0.3)
 
     # The certifications. The screen will not continue without them, and the
