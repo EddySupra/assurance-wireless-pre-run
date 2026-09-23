@@ -135,3 +135,52 @@ def test_an_outage_is_worth_another_browser_but_a_rejection_is_not():
     assert runner._before_the_form(rejection) is False
     assert is_vendor_outage(outage) is True
     assert is_vendor_outage(rejection) is False
+
+
+# -- what a silent stall reports ---------------------------------------------
+#
+# Row 230 stalled on step 8 with every field ng-valid and no validation
+# message. The saved page could not say which control was empty, because
+# Angular sets `checked` as a *property* and a serialised DOM carries only
+# attributes -- so a radio group reads as untouched whether or not anything in
+# it is selected. That is precisely the question a silent stall raises.
+
+from aw_bot.page_utils import _REQUIRED_STATE_JS, _log_required_state  # noqa: E402
+
+
+def test_the_state_script_reads_properties_not_attributes():
+    """`el.checked`, not getAttribute('checked') -- the whole point."""
+    assert "el.checked" in _REQUIRED_STATE_JS
+    assert "getAttribute('checked')" not in _REQUIRED_STATE_JS
+
+
+def test_it_groups_radios_by_name():
+    """A group with three options and none selected is the interesting case,
+    and it is only visible once the options are counted together."""
+    assert "getAttribute('name')" in _REQUIRED_STATE_JS
+    assert "out.groups" in _REQUIRED_STATE_JS
+
+
+def test_it_reports_required_ness_and_what_the_app_marked_invalid():
+    assert "el.required" in _REQUIRED_STATE_JS
+    assert "ng-invalid" in _REQUIRED_STATE_JS
+
+
+class _Broken:
+    def execute_script(self, *a, **k):
+        raise RuntimeError("frame went away")
+
+
+def test_a_failure_to_read_the_state_is_not_fatal():
+    """This is a report about a failure that has already happened; it must not
+    replace the real error with its own."""
+    _log_required_state(_Broken(), "Step 8")
+
+
+class _Quiet:
+    def execute_script(self, *a, **k):
+        return {"groups": {}, "fields": [], "invalid": []}
+
+
+def test_an_empty_screen_still_logs_without_raising():
+    _log_required_state(_Quiet(), "Step 8")

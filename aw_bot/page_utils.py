@@ -1912,9 +1912,80 @@ def advance_screen(
             f"host's lookup behind this screen is not responding."
         )
 
+    # What every required control on the screen actually holds, before the
+    # error is raised.
+    #
+    # An HTML dump cannot answer this. Angular sets `checked` as a *property*
+    # and the serialised DOM only carries attributes, so a saved page shows a
+    # radio group as untouched whether or not anything in it is selected --
+    # which is exactly the question a silent stall raises. Row 230 stalled
+    # here with every field ng-valid and no validation message, and the
+    # capture could not say which control, if any, was empty.
+    _log_required_state(sb, step_label)
+
     raise PageMismatchError(
         f"{step_label}: clicked Continue but the screen never changed. "
         + (f"Form errors: {errors}" if errors else "No validation message was shown.")
+    )
+
+
+# Every control the screen marks required, and what it holds right now.
+_REQUIRED_STATE_JS = r"""
+const out = {groups: {}, fields: [], invalid: []};
+
+for (const el of document.querySelectorAll('input[type=radio], input[type=checkbox]')) {
+  const name = el.getAttribute('name') || el.id || '(unnamed)';
+  const g = out.groups[name] || (out.groups[name] = {options: 0, set: null, required: false});
+  g.options += 1;
+  if (el.required) g.required = true;
+  if (el.checked) g.set = el.value || el.id || true;
+}
+
+for (const el of document.querySelectorAll('input:not([type=radio]):not([type=checkbox]), select, textarea')) {
+  if (el.type === 'hidden' || !el.offsetParent) continue;
+  const id = el.id || el.getAttribute('name');
+  if (!id) continue;
+  out.fields.push({
+    field: id,
+    required: !!el.required,
+    filled: !!(el.value && String(el.value).trim()),
+  });
+  if (el.classList.contains('ng-invalid')) out.invalid.push(id);
+}
+
+for (const el of document.querySelectorAll('.ng-invalid[id]')) {
+  if (out.invalid.indexOf(el.id) === -1) out.invalid.push(el.id);
+}
+return out;
+"""
+
+
+def _log_required_state(sb, step_label: str) -> None:
+    """Say what each required control holds. Never fatal -- this is a report
+    about a failure that has already happened."""
+    try:
+        state = sb.execute_script(_REQUIRED_STATE_JS) or {}
+    except Exception as exc:
+        LOG.debug("%s: could not read the screen's control state: %s", step_label, exc)
+        return
+
+    unset = [
+        name for name, g in (state.get("groups") or {}).items()
+        if g.get("required") and g.get("set") is None
+    ]
+    empty = [
+        f["field"] for f in (state.get("fields") or [])
+        if f.get("required") and not f.get("filled")
+    ]
+
+    LOG.warning(
+        "%s: required controls at the stall -- %s; %s; %s", step_label,
+        f"radio/checkbox groups with nothing selected: {unset}" if unset
+        else "every required radio/checkbox group has a selection",
+        f"empty required fields: {empty}" if empty
+        else "every required field has a value",
+        f"marked invalid by the app: {state.get('invalid')}"
+        if state.get("invalid") else "nothing marked invalid by the app",
     )
 
 
