@@ -172,3 +172,62 @@ def test_an_unusable_911_setting_stops_the_lead(monkeypatch):
     cfg = RunConfig()
     cfg.application.wifi_911_acknowledged = "Maybe"
     assert step10._answer_attestations(_Sb(_READY), cfg, _LEAD, Path(".")) is False
+
+
+# -- a click that needs a moment to register ---------------------------------
+#
+# These boxes are Angular-bound and the click lands on a div drawn over the
+# input, so the model updates a moment after the pointer does. Reading the
+# state once after a fixed pause caught that gap on row 211: the service terms
+# box came back unticked on a lead where the identical click had worked twice
+# before, and the screen stopped with a required box unticked.
+
+class _Slow:
+    """A control that only reports itself set after `delay` reads."""
+
+    def __init__(self, delay):
+        self.delay = delay
+        self.reads = 0
+        self.clicks = 0
+
+    def execute_script(self, script, *args):
+        self.reads += 1
+        if self.reads == 1:
+            return dict(_READY)
+        set_now = self.reads > self.delay
+        return dict(_READY, e911Yes=set_now, signature=set_now)
+
+
+def test_a_control_that_lags_is_waited_for(monkeypatch):
+    """One click, then a wait -- not a second click and not a failure."""
+    sb = _Slow(delay=4)
+    clicks = []
+    _quiet(monkeypatch, clicks)
+    monkeypatch.setattr(step10, "advance_screen", lambda *a, **k: None)
+
+    assert step10._answer_attestations(sb, RunConfig(), _LEAD, Path(".")) is True
+    assert len(clicks) == 2, "one click per control, not a retry"
+
+
+def test_a_control_that_never_sets_is_clicked_once_more_then_stops(monkeypatch):
+    """Two attempts, because a third would be clicking at a screen that is
+    telling us something is wrong -- and a second click on a box that *did*
+    register would clear it again."""
+    clicks = []
+    _quiet(monkeypatch, clicks)
+    monkeypatch.setattr(step10, "advance_screen", lambda *a, **k: None)
+
+    sb = _Sb(_READY, dict(_READY))          # never changes
+    assert step10._answer_attestations(sb, RunConfig(), _LEAD, Path(".")) is False
+    assert len(clicks) == step10._SETTLE_TRIES, clicks
+
+
+def test_the_wait_is_counted_in_polls_not_wall_clock():
+    """So the delay comes from `pause`, which carries the run's pacing.
+
+    A wall-clock deadline spun the suite for the full timeout on every
+    negative test, because the stubbed `pause` returns instantly.
+    """
+    assert isinstance(step10._SETTLE_POLLS, int)
+    assert step10._SETTLE_POLLS >= 2
+    assert step10._SETTLE_TRIES == 2

@@ -203,6 +203,45 @@ return {
 """
 
 
+# How long to let a painted control catch up, and how many times to try it.
+#
+# These boxes are Angular-bound and the click lands on a div drawn over the
+# input, so the model updates a moment after the pointer does. Reading the
+# state once after a fixed pause caught that gap: the service terms box came
+# back unticked on a lead where the identical click had worked twice before.
+# Bounded at two attempts because a second click on a box that did register
+# would clear it again.
+#
+# Counted in polls rather than wall-clock seconds so that the delay comes
+# entirely from `pause` -- which is what carries the run's pacing, and what
+# the tests stub out.
+_SETTLE_POLLS = 12
+_SETTLE_TRIES = 2
+
+
+def _click_and_confirm(sb, cfg: RunConfig, selector: str, reads: str, holds, what: str) -> bool:
+    """Click `selector`, then wait for the page to agree it took.
+
+    `holds` is given the state `reads` returns and says whether the control
+    is now set. Returns False only after a second attempt has also failed to
+    register, which is the point at which something is wrong with the screen
+    rather than with the timing.
+    """
+    for attempt in range(1, _SETTLE_TRIES + 1):
+        human_click(sb, selector, cfg)
+
+        for _ in range(_SETTLE_POLLS):
+            pause(cfg, 0.3)
+            if holds(sb.execute_script(reads) or {}):
+                return True
+
+        if attempt < _SETTLE_TRIES:
+            LOG.warning(
+                "Step 10: %s did not register -- clicking it once more", what,
+            )
+    return False
+
+
 def _is_attestations_screen(headings: list[str]) -> bool:
     return ATTESTATIONS_HEADING in " | ".join(headings or []).lower()
 
@@ -237,13 +276,20 @@ def _answer_attestations(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
         )
         return False
 
-    already = state.get("e911Yes") if answer == "yes" else state.get("e911No")
-    if already:
+    key = "e911Yes" if answer == "yes" else "e911No"
+    if state.get(key):
         LOG.info("Step 10: the Wi-Fi 911 limitation is already acknowledged")
     else:
         LOG.info("Step 10: acknowledging the Wi-Fi 911 limitation -- %s", answer.title())
-        human_click(sb, _E911_LABEL.format(answer=answer), cfg)
-        pause(cfg, 0.4)
+        if not _click_and_confirm(
+            sb, cfg, _E911_LABEL.format(answer=answer), _ATTESTATIONS_STATE_JS,
+            lambda s: s.get(key), "the Wi-Fi 911 acknowledgement",
+        ):
+            LOG.error(
+                "Step 10: the Wi-Fi 911 acknowledgement would not stay on %r. "
+                "Stopping rather than continuing with it unanswered.", answer.title(),
+            )
+            return False
 
     if not app.service_terms_agreed:
         LOG.error(
@@ -256,18 +302,15 @@ def _answer_attestations(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
         LOG.info("Step 10: the service terms are already agreed")
     else:
         LOG.info("Step 10: agreeing to the Assurance Wireless service terms")
-        human_click(sb, _SIGNATURE_CHECKBOX, cfg)
-        pause(cfg, 0.4)
-
-    after = sb.execute_script(_ATTESTATIONS_STATE_JS) or {}
-    held = after.get("e911Yes") if answer == "yes" else after.get("e911No")
-    if not held or not after.get("signature"):
-        LOG.error(
-            "Step 10: the Attestations screen did not keep what was clicked "
-            "(911 acknowledgement=%s, service terms=%s). Stopping.",
-            held, after.get("signature"),
-        )
-        return False
+        if not _click_and_confirm(
+            sb, cfg, _SIGNATURE_CHECKBOX, _ATTESTATIONS_STATE_JS,
+            lambda s: s.get("signature"), "the service terms box",
+        ):
+            LOG.error(
+                "Step 10: the service terms box would not stay ticked, and the "
+                "screen will not continue without it. Stopping."
+            )
+            return False
 
     capture(sb, run_dir, f"{STEP_NAME}_attestations", save=cfg.save_artifacts)
     advance_screen(sb, cfg, "Step 10", CONTINUE_SELECTORS, settle=SETTLE_AFTER_CONTINUE)
