@@ -68,9 +68,20 @@ def test_the_911_answer_clicks_the_toggle_label():
     assert step10._E911_LABEL.format(answer="no") == 'label[for="e911no"]'
 
 
-def test_the_service_terms_box_aims_at_the_painted_control():
-    assert step10._SIGNATURE_CHECKBOX == 'input[id="sigCheck"] + div.b-input'
-    assert "div.b-input" in step10._SIGNATURE_CHECKBOX
+def test_the_service_terms_box_has_two_honest_targets():
+    """The painted box first, then the label that owns the checkbox.
+
+    Row 224 was clicked twice on the painted box and the input stayed
+    `ng-pristine ng-untouched` -- Angular saying it never saw the interaction
+    at all. It is a small box in a narrow right-hand column; the label
+    activates the same control natively through `for=`, and unlike the
+    programme rows this label contains only the box, so its centre is the box.
+    """
+    targets = step10._SIGNATURE_CHECKBOX
+    assert isinstance(targets, tuple)
+    assert targets[0] == 'input[id="sigCheck"] + div.b-input'
+    assert targets[1] == 'label[for="sigCheck"]'
+    assert len(set(targets)) == len(targets)
 
 
 def test_the_configured_answers():
@@ -209,17 +220,57 @@ def test_a_control_that_lags_is_waited_for(monkeypatch):
     assert len(clicks) == 2, "one click per control, not a retry"
 
 
-def test_a_control_that_never_sets_is_clicked_once_more_then_stops(monkeypatch):
-    """Two attempts, because a third would be clicking at a screen that is
-    telling us something is wrong -- and a second click on a box that *did*
-    register would clear it again."""
+def test_a_control_that_never_sets_tries_each_target_then_stops(monkeypatch):
+    """One click per target and no more.
+
+    Bounded by the number of honest targets rather than by a retry count: a
+    second click on a box that *did* register would clear it again, and a
+    screen ignoring every target is telling us something other than "try
+    harder".
+    """
     clicks = []
     _quiet(monkeypatch, clicks)
     monkeypatch.setattr(step10, "advance_screen", lambda *a, **k: None)
 
     sb = _Sb(_READY, dict(_READY))          # never changes
     assert step10._answer_attestations(sb, RunConfig(), _LEAD, Path(".")) is False
-    assert len(clicks) == step10._SETTLE_TRIES, clicks
+
+    # The 911 toggle has one target and is tried once; then it gives up
+    # before reaching the service terms box.
+    assert clicks == [step10._E911_LABEL.format(answer="yes")], clicks
+
+
+def test_the_service_terms_box_falls_back_to_its_label(monkeypatch):
+    """The painted box misses, the label lands -- and the lead continues."""
+    clicks = []
+    _quiet(monkeypatch, clicks)
+    monkeypatch.setattr(step10, "advance_screen", lambda *a, **k: None)
+
+    class _LabelOnly:
+        """Only a click on the label sets the signature."""
+
+        def __init__(self):
+            self.reads = 0
+            self.signed = False
+
+        def execute_script(self, script, *args):
+            self.reads += 1
+            if self.reads == 1:
+                return dict(_READY)
+            return dict(_READY, e911Yes=True, signature=self.signed)
+
+    sb = _LabelOnly()
+
+    def _click(_sb, selector, _cfg):
+        clicks.append(selector)
+        if selector == 'label[for="sigCheck"]':
+            sb.signed = True
+
+    monkeypatch.setattr(step10, "human_click", _click)
+
+    assert step10._answer_attestations(sb, RunConfig(), _LEAD, Path(".")) is True
+    assert 'input[id="sigCheck"] + div.b-input' in clicks
+    assert 'label[for="sigCheck"]' in clicks
 
 
 def test_the_wait_is_counted_in_polls_not_wall_clock():
@@ -230,4 +281,12 @@ def test_the_wait_is_counted_in_polls_not_wall_clock():
     """
     assert isinstance(step10._SETTLE_POLLS, int)
     assert step10._SETTLE_POLLS >= 2
-    assert step10._SETTLE_TRIES == 2
+
+
+def test_a_failure_reports_what_the_click_would_have_hit():
+    """The two causes want opposite answers and look identical otherwise:
+    a click that misses the element, and one that hits it and is ignored."""
+    js = step10._HIT_TEST_JS
+    assert "elementFromPoint" in js
+    assert "getBoundingClientRect" in js
+    assert "innerHeight" in js

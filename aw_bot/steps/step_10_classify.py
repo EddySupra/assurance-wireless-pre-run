@@ -187,7 +187,16 @@ HOUSEHOLD_QUESTIONS = (
 # which is the familiar painted-checkbox pattern.
 ATTESTATIONS_HEADING = "attestations"
 _E911_LABEL = 'label[for="e911{answer}"]'
-_SIGNATURE_CHECKBOX = 'input[id="sigCheck"] + div.b-input'
+# Two honest targets for the same control, tried in order. The painted box
+# is what is drawn on screen, but it is a small box in a narrow right-hand
+# column and clicking it does not always reach the input; the label owns the
+# checkbox through `for=` and is the native way to activate it. Unlike the
+# programme rows, this label is not a paragraph -- it contains only the
+# painted box -- so its centre is the box.
+_SIGNATURE_CHECKBOX = (
+    'input[id="sigCheck"] + div.b-input',
+    'label[for="sigCheck"]',
+)
 
 _ATTESTATIONS_STATE_JS = """
 const yes = document.getElementById('e911yes');
@@ -216,18 +225,56 @@ return {
 # entirely from `pause` -- which is what carries the run's pacing, and what
 # the tests stub out.
 _SETTLE_POLLS = 12
-_SETTLE_TRIES = 2
 
 
-def _click_and_confirm(sb, cfg: RunConfig, selector: str, reads: str, holds, what: str) -> bool:
-    """Click `selector`, then wait for the page to agree it took.
+# What a click aimed at this selector would actually land on.
+#
+# Logged when a control will not set, because the two causes want opposite
+# answers and the symptom is identical: a click that misses the element, and
+# a click that hits it and is ignored. The first shows a different element
+# under the point; the second shows the element itself.
+_HIT_TEST_JS = """
+const el = document.querySelector(arguments[0]);
+if (!el) return {found: false};
+const r = el.getBoundingClientRect();
+const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+const at = document.elementFromPoint(cx, cy);
+const name = (n) => {
+  if (!n) return null;
+  const cls = (typeof n.className === 'string' && n.className.trim())
+      ? '.' + n.className.trim().split(/\s+/).join('.') : '';
+  return n.tagName.toLowerCase() + (n.id ? '#' + n.id : '') + cls;
+};
+return {
+  found: true,
+  size: Math.round(r.width) + 'x' + Math.round(r.height),
+  at: Math.round(r.left) + ',' + Math.round(r.top),
+  viewport: window.innerWidth + 'x' + window.innerHeight,
+  onScreen: r.bottom > 0 && r.top < window.innerHeight
+         && r.right > 0 && r.left < window.innerWidth,
+  under: name(at),
+  hits: !!(at && (at === el || el.contains(at) || at.contains(el)))
+};
+"""
+
+
+def _click_and_confirm(sb, cfg: RunConfig, selectors, reads: str, holds, what: str) -> bool:
+    """Click each of `selectors` in turn until the page agrees one took.
 
     `holds` is given the state `reads` returns and says whether the control
-    is now set. Returns False only after a second attempt has also failed to
-    register, which is the point at which something is wrong with the screen
-    rather than with the timing.
+    is now set. More than one selector because a control can have two honest
+    click targets -- the painted box and the label that owns it -- and on the
+    Attestations screen the painted box alone does not always activate it:
+    row 224 was clicked twice on it and the input stayed `ng-pristine`, which
+    is Angular saying it never saw the interaction at all.
+
+    Bounded by the number of targets rather than by retries, because a second
+    click on a box that *did* register would clear it again.
     """
-    for attempt in range(1, _SETTLE_TRIES + 1):
+    if isinstance(selectors, str):
+        selectors = (selectors,)
+
+    for index, selector in enumerate(selectors):
         human_click(sb, selector, cfg)
 
         for _ in range(_SETTLE_POLLS):
@@ -235,10 +282,18 @@ def _click_and_confirm(sb, cfg: RunConfig, selector: str, reads: str, holds, wha
             if holds(sb.execute_script(reads) or {}):
                 return True
 
-        if attempt < _SETTLE_TRIES:
-            LOG.warning(
-                "Step 10: %s did not register -- clicking it once more", what,
-            )
+        where = sb.execute_script(_HIT_TEST_JS, selector) or {}
+        LOG.warning(
+            "Step 10: %s did not register via %s -- %s", what, selector,
+            "element not on the page" if not where.get("found") else
+            "%s at %s in a %s viewport, on screen: %s, a click there lands on %s (%s)" % (
+                where.get("size"), where.get("at"), where.get("viewport"),
+                where.get("onScreen"), where.get("under"),
+                "the right element" if where.get("hits") else "something else",
+            ),
+        )
+        if index + 1 < len(selectors):
+            LOG.info("Step 10: trying %s instead", selectors[index + 1])
     return False
 
 
