@@ -344,6 +344,32 @@ def is_retryable_message(message: str) -> bool:
     return any(signal in lowered for signal in RETRYABLE_SIGNALS)
 
 
+# The enrollment host's own backend being down, which it reports through the
+# form as though it were a validation failure:
+#
+#   "Important: API is offline. Please contact Solix."
+#
+# Seen after thirty seconds of "Validating identity. Please wait...", on a
+# step that had been passing all morning. It says nothing about the applicant
+# and nothing about this automation -- the identity lookup never completed, so
+# no application was recorded and nothing is resubmitted by trying again.
+#
+# Worth separating from a data rejection because the two want opposite
+# handling: a rejected field will fail the same way on every browser and must
+# not be retried, whereas this one is a vendor outage and another attempt
+# costs nothing.
+VENDOR_OUTAGE_SIGNALS = (
+    "api is offline",
+    "contact solix",
+)
+
+
+def is_vendor_outage(message: str) -> bool:
+    """Is this the enrollment host telling us its own backend is down?"""
+    lowered = (message or "").lower()
+    return any(signal in lowered for signal in VENDOR_OUTAGE_SIGNALS)
+
+
 # Modals the app uses as progress spinners rather than errors. Treating one
 # of these as a rejection aborts a submission that was still in flight.
 PROGRESS_MODAL_HINTS = (

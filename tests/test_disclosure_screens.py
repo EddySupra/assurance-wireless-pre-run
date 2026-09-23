@@ -273,13 +273,16 @@ def test_a_question_that_cannot_be_found_stops_the_lead(monkeypatch):
     """Answering by position would certify something nobody checked."""
     monkeypatch.setattr(step10, "human_click", lambda *a, **k: None)
     monkeypatch.setattr(step10, "pause", lambda *a, **k: None)
+    monkeypatch.setattr(step10, "capture", lambda *a, **k: {})
     blocks = _three_questions()
     del blocks[step10.HOUSEHOLD_QUESTIONS[1][0]]
     assert step10._answer_household(_Screen(blocks), RunConfig(), _LEAD, Path(".")) is False
 
 
-def test_a_block_covering_two_questions_stops_the_lead():
+def test_a_block_covering_two_questions_stops_the_lead(monkeypatch):
     """The locator returns nothing rather than pick from a merged block."""
+    monkeypatch.setattr(step10, "capture", lambda *a, **k: {})
+
     class _Merged(_Screen):
         def execute_script(self, script, *args):
             if "arguments[1] || []" in script:
@@ -289,8 +292,9 @@ def test_a_block_covering_two_questions_stops_the_lead():
     assert step10._answer_household(_Merged({}), RunConfig(), _LEAD, Path(".")) is False
 
 
-def test_a_missing_option_stops_the_lead():
+def test_a_missing_option_stops_the_lead(monkeypatch):
     """A question offering something other than the configured answer."""
+    monkeypatch.setattr(step10, "capture", lambda *a, **k: {})
     blocks = _three_questions()
     blocks[step10.HOUSEHOLD_QUESTIONS[0][0]] = [
         {"id": "x", "value": "M", "label": "Maybe", "checked": False,

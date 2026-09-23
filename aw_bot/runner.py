@@ -36,6 +36,7 @@ from .errors import (
 )
 from .lead import Lead
 from .logs import LOG, run_id, setup
+from .page_utils import is_vendor_outage
 from .steps.step_00_direct_frame import open_application_frame
 from .steps.step_01_start_page import open_start_page
 from .steps.step_02_apply_now import click_apply_now
@@ -415,6 +416,17 @@ def _attempt_one(
                 # lead -- and another browser is exactly the right answer.
                 # Measured: a lead was thrown away on that error while the
                 # very next browser walked the same pages without trouble.
+                #
+                # So is the host announcing that its own backend is down. That
+                # one reads like a data rejection because it arrives the same
+                # way, but the identity lookup never ran, so nothing was
+                # recorded and another browser costs nothing.
+                if is_vendor_outage(str(exc)):
+                    LOG.warning(
+                        "That is the enrollment host's own backend, not this "
+                        "lead and not this automation -- trying another browser."
+                    )
+                    return "failed", str(exc), verdict, True
                 return "failed", str(exc), verdict, _before_the_form(str(exc))
             except Exception as exc:
                 gone = _browser_died(exc)

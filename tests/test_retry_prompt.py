@@ -84,3 +84,54 @@ def test_an_unrelated_modal_is_not_retried():
 def test_the_retries_are_bounded():
     """"Repeat the process" is not licence to resubmit an application forever."""
     assert 1 <= MAX_RETRY_PROMPTS <= 5
+
+
+# -- the host's own backend being down ---------------------------------------
+#
+# "Important: API is offline. Please contact Solix." arrives through the form
+# the same way a rejected field does, so without this it was filed as a fact
+# about the applicant and the lead was thrown away. The identity lookup never
+# ran, so nothing was recorded and another browser costs nothing.
+
+from aw_bot.page_utils import is_vendor_outage  # noqa: E402
+from aw_bot import runner  # noqa: E402
+
+
+def test_the_hosts_outage_message_is_recognised():
+    assert is_vendor_outage(
+        "Step 9: the form rejected the data -- Important: API is offline. "
+        "Please contact Solix."
+    ) is True
+
+
+def test_recognition_ignores_case_and_surrounding_text():
+    assert is_vendor_outage("IMPORTANT: API IS OFFLINE.") is True
+    assert is_vendor_outage("please contact Solix for assistance") is True
+
+
+def test_a_real_rejection_is_not_mistaken_for_an_outage():
+    """These want opposite handling, so the line between them matters.
+
+    A rejected field fails the same way on every browser and retrying it
+    resubmits the applicant, which is what makes the host start refusing.
+    """
+    for message in (
+        "Step 9: the form rejected the data -- Please enter a valid address.",
+        "Step 6: the email address is not deliverable",
+        "Step 9: clicked Continue but the screen never changed",
+        "",
+    ):
+        assert is_vendor_outage(message) is False, message
+
+
+def test_an_outage_is_worth_another_browser_but_a_rejection_is_not():
+    """What the runner actually keys on to decide whether to retry."""
+    outage = "Step 9: the form rejected the data -- Important: API is offline."
+    rejection = "Step 9: the form rejected the data -- Please enter a valid address."
+
+    # Step 9 is past the public pages, so neither would be retried on that
+    # basis alone -- the outage check is what separates them.
+    assert runner._before_the_form(outage) is False
+    assert runner._before_the_form(rejection) is False
+    assert is_vendor_outage(outage) is True
+    assert is_vendor_outage(rejection) is False
