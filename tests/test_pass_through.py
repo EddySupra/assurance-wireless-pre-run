@@ -60,8 +60,13 @@ def test_an_unknown_screen_is_not_clicked_past():
 
 
 def test_the_number_of_pages_clicked_through_is_bounded():
-    """A wizard handing back page after page is one this step does not follow."""
-    assert 1 <= step10.MAX_PASS_THROUGH <= 6
+    """A wizard handing back page after page is one this step does not follow.
+
+    Five screens are known between step 9 and the verdict, so the ceiling has
+    to clear those with a little room and stop well short of "press Continue
+    until something looks like an answer".
+    """
+    assert 5 < step10.MAX_PASS_THROUGH <= 12
 
 
 def test_each_continue_settles_before_the_screen_is_judged():

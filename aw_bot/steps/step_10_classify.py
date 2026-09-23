@@ -60,11 +60,13 @@ CONTINUE_SELECTORS = (
     'button:contains("Continue")',
 )
 
-# How many of these to click through before giving up. A wizard that keeps
-# handing back pages to acknowledge is one this step does not understand, and
-# clicking Continue indefinitely on a benefits application is not a thing to
-# do on a guess.
-MAX_PASS_THROUGH = 4
+# How many screens to work through before giving up. Five are known between
+# step 9 and the verdict -- account review, qualifying programme, phone
+# choice, e-signature consent, one-per-household -- so this allows a little
+# room beyond them and no more. A wizard that keeps handing back pages is one
+# this step does not understand, and pressing Continue indefinitely on a
+# benefits application is not a thing to do on a guess.
+MAX_PASS_THROUGH = 8
 
 # Seconds to sit still after each pass-through Continue, for the same reason
 # step 9 does it: the screens behind this point wait on a backend, and the
@@ -171,6 +173,74 @@ return Array.from(document.querySelectorAll('input[type=checkbox]'))
     .filter(b => !b.disabled)
     .every(b => b.checked);
 """
+
+
+# "Choose your phone", the device-selection screen.
+PHONE_HEADING = "choose your phone"
+
+# The two options are radios that share an id -- `id="deviceType"` on both --
+# so a label[for=] cannot tell them apart and `read_radios` has nothing unique
+# to key on. Their `value` does distinguish them, and each has the painted
+# control as its immediate next sibling:
+#
+#   <span class="b-contain">
+#     <input type="radio" id="deviceType" name="deviceType" value="free">
+#     <div class="b-input"></div>          <- what is actually on screen
+#   </span>
+#
+# So the adjacent-sibling selector is what reaches the right one. Clicking the
+# input itself would land on the div drawn over it, the same as every other
+# radio on this site.
+_PHONE_SELECTOR = 'input[name="deviceType"][value="{value}"] + div.b-input'
+
+_PHONE_STATE_JS = """
+const wanted = arguments[0];
+const radios = Array.from(document.querySelectorAll('input[name="deviceType"]'));
+const hit = radios.find(r => r.value === wanted) || null;
+return {
+  offered: radios.map(r => r.value),
+  found: !!hit,
+  checked: hit ? hit.checked : null
+};
+"""
+
+
+def _is_phone_screen(headings: list[str]) -> bool:
+    return PHONE_HEADING in " | ".join(headings or []).lower()
+
+
+def _choose_phone(sb, cfg: RunConfig, run_dir: Path) -> bool:
+    """Pick the configured device and continue. False to stop."""
+    wanted = cfg.application.phone_option
+    state = sb.execute_script(_PHONE_STATE_JS, wanted) or {}
+
+    if not state.get("found"):
+        LOG.error(
+            "Step 10: no phone option with value %r on this screen. "
+            "Offered: %s", wanted, state.get("offered") or [],
+        )
+        return False
+
+    if state.get("checked"):
+        LOG.info("Step 10: the %r phone option is already selected", wanted)
+    else:
+        LOG.info("Step 10: choosing the %r phone option", wanted)
+        human_click(sb, _PHONE_SELECTOR.format(value=wanted), cfg)
+        pause(cfg, 0.4)
+
+    # Confirm it took. A painted radio that swallowed the click leaves the
+    # screen with no device chosen and Continue refusing to move.
+    after = sb.execute_script(_PHONE_STATE_JS, wanted) or {}
+    if not after.get("checked"):
+        LOG.error(
+            "Step 10: the %r phone option did not stay selected. Stopping "
+            "rather than continuing with no device chosen.", wanted,
+        )
+        return False
+
+    capture(sb, run_dir, f"{STEP_NAME}_phone", save=cfg.save_artifacts)
+    advance_screen(sb, cfg, "Step 10", CONTINUE_SELECTORS, settle=SETTLE_AFTER_CONTINUE)
+    return True
 
 
 def _is_esign_screen(body: str) -> bool:
@@ -350,6 +420,8 @@ def classify_lead(sb, cfg: RunConfig, lead, run_dir: Path, *, submit: bool = Tru
         answered = None
         if _is_qualify_screen(headings):
             answered = ("qualification", _choose_program)
+        elif _is_phone_screen(headings):
+            answered = ("phone choice", _choose_phone)
         elif _is_esign_screen(seen):
             answered = ("e-signature consent", _answer_esign)
         elif _is_household_screen(seen):

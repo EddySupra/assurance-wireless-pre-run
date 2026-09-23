@@ -159,6 +159,19 @@ class ApplicationConfig:
     contact_method: str = "Email"
     print_preference: str = "Standard Print"
 
+    # "Choose your phone" -- which device the applicant is applying for.
+    #
+    # The site offers two, and the value is the radio's own:
+    #
+    #   "free"  Order a Free, Basic Smartphone -- shipped if approved
+    #   "byod"  Bring Your Own Phone -- sends the applicant to a compatibility
+    #           check first, which is an extra screen and an extra way for a
+    #           lead to stall before reaching its verdict
+    #
+    # A preference rather than a claim about the applicant, which is why it
+    # sits here rather than coming from the sheet.
+    phone_option: str = "free"
+
     # The screens between the qualifying programme and the decision.
     #
     # These are answered exactly as the reference recordings answer them, and
