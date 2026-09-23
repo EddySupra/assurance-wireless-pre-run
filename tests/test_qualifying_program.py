@@ -18,6 +18,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from aw_bot.config import RunConfig  # noqa: E402
 from aw_bot.steps import step_10_classify as step10  # noqa: E402
 
+
+class _Lead:
+    """Just the name fields the signature screen reads."""
+
+    first_name = "LINDA"
+    last_name = "JOHNSON"
+
+
+_LEAD = _Lead()
+
 QUALIFY_HEADINGS = [
     "California LifeLine Application",
     "How do you qualify for California LifeLine Service?",
@@ -68,8 +78,7 @@ class _Sb:
 def test_an_unmatched_programme_stops_the_lead(monkeypatch):
     """The nearest option is not an acceptable substitute for the right one."""
     sb = _Sb({"options": ["Medicaid/Medi-Cal", "Supplemental Security Income (SSI)"]})
-    cfg = RunConfig()
-    assert step10._choose_program(sb, cfg, Path(".")) is False
+    assert step10._choose_program(sb, RunConfig(), _LEAD, Path(".")) is False
 
 
 def test_a_tick_that_does_not_register_stops_the_lead(monkeypatch):
@@ -90,7 +99,7 @@ def test_a_tick_that_does_not_register_stops_the_lead(monkeypatch):
         },
         checked_after=False,
     )
-    assert step10._choose_program(sb, RunConfig(), Path(".")) is False
+    assert step10._choose_program(sb, RunConfig(), _LEAD, Path(".")) is False
 
 
 def test_a_successful_tick_continues(monkeypatch):
@@ -111,7 +120,7 @@ def test_a_successful_tick_continues(monkeypatch):
         },
         checked_after=True,
     )
-    assert step10._choose_program(sb, RunConfig(), Path(".")) is True
+    assert step10._choose_program(sb, RunConfig(), _LEAD, Path(".")) is True
     assert advanced, "it should press Continue after ticking"
 
 
@@ -135,5 +144,5 @@ def test_an_already_ticked_programme_is_left_alone(monkeypatch):
         },
         checked_after=True,
     )
-    assert step10._choose_program(sb, RunConfig(), Path(".")) is True
+    assert step10._choose_program(sb, RunConfig(), _LEAD, Path(".")) is True
     assert not clicks, "an already-ticked box must not be clicked again"

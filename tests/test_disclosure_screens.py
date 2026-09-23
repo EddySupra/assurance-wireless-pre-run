@@ -21,6 +21,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from aw_bot.config import RunConfig  # noqa: E402
 from aw_bot.steps import step_10_classify as step10  # noqa: E402
 
+
+class _Lead:
+    """Just the name fields the signature screen reads."""
+
+    first_name = "LINDA"
+    last_name = "JOHNSON"
+
+
+_LEAD = _Lead()
+
 HOUSEHOLD_BODY = (
     "1. Do you live with another adult? Adults are 18 years old or older or "
     "are emancipated minors. 2. Does the adult who lives with you receive a "
@@ -74,9 +84,59 @@ def test_the_household_answers_are_yes_yes_no():
 
 
 def test_the_esignature_consent_is_agreed():
-    app = RunConfig().application
-    assert app.esign_consent == "Yes"
-    assert app.esign_initials == "XX"
+    assert RunConfig().application.esign_consent == "Yes"
+
+
+# -- what the consent is signed with -----------------------------------------
+
+def test_the_signature_comes_from_the_applicants_own_name():
+    """Not a constant.
+
+    The initials box takes two letters and the name box takes the applicant's
+    name as the site already holds it, so anything else is simply wrong. The
+    reference recording types "XX" into the initials, which is a placeholder
+    rather than a rule.
+    """
+    initials, full = step10._signature_values(_LEAD)
+    assert initials == "LJ"
+    assert full == "LINDA JOHNSON"
+
+
+def test_the_initials_are_uppercased_and_two_letters():
+    class _Lower:
+        first_name = "linda"
+        last_name = "johnson"
+
+    initials, _ = step10._signature_values(_Lower())
+    assert initials == "LJ"
+    assert len(initials) == 2
+
+
+def test_surrounding_whitespace_is_trimmed():
+    class _Padded:
+        first_name = "  LINDA "
+        last_name = " JOHNSON  "
+
+    initials, full = step10._signature_values(_Padded())
+    assert initials == "LJ"
+    assert full == "LINDA JOHNSON"
+
+
+def test_a_missing_name_yields_nothing_to_sign_with():
+    """The handler refuses on this rather than signing a blank."""
+    class _Nameless:
+        first_name = ""
+        last_name = ""
+
+    initials, full = step10._signature_values(_Nameless())
+    assert initials == ""
+    assert full == ""
+
+
+def test_the_signature_fields_use_the_sites_real_ids():
+    """Guessed selectors missed both and the screen silently refused to move."""
+    assert step10.ESIGN_INITIALS_FIELD == "#esigintl"
+    assert step10.ESIGN_NAME_FIELD == "#esigname"
 
 
 def test_each_question_has_its_own_setting():
@@ -113,11 +173,11 @@ class _Sb:
 
 def test_a_household_screen_with_no_questions_stops_the_lead(monkeypatch):
     monkeypatch.setattr(step10, "read_radios", lambda sb: [])
-    assert step10._answer_household(_Sb(), RunConfig(), Path(".")) is False
+    assert step10._answer_household(_Sb(), RunConfig(), _LEAD, Path(".")) is False
 
 
 def test_an_unanswerable_question_stops_the_lead(monkeypatch):
     """A certification about someone's living arrangements is not guessable."""
     monkeypatch.setattr(step10, "read_radios", lambda sb: [{"label": "Maybe"}])
     monkeypatch.setattr(step10, "answer_radio", lambda *a, **k: False)
-    assert step10._answer_household(_Sb(), RunConfig(), Path(".")) is False
+    assert step10._answer_household(_Sb(), RunConfig(), _LEAD, Path(".")) is False

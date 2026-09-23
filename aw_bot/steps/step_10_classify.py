@@ -237,7 +237,7 @@ def _is_phone_screen(headings: list[str]) -> bool:
     return PHONE_HEADING in " | ".join(headings or []).lower()
 
 
-def _choose_phone(sb, cfg: RunConfig, run_dir: Path) -> bool:
+def _choose_phone(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
     """Pick the configured device and continue. False to stop."""
     wanted = cfg.application.phone_option
     state = sb.execute_script(_PHONE_STATE_JS, wanted) or {}
@@ -283,7 +283,7 @@ def _is_qualify_screen(headings: list[str]) -> bool:
     return QUALIFY_HEADING in " | ".join(headings or []).lower()
 
 
-def _choose_program(sb, cfg: RunConfig, run_dir: Path) -> bool:
+def _choose_program(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
     """Tick the configured qualifying programme and continue. False to stop.
 
     Refuses rather than guesses. The programme is a claim about the applicant
@@ -341,8 +341,42 @@ def _choose_program(sb, cfg: RunConfig, run_dir: Path) -> bool:
     return True
 
 
-def _answer_esign(sb, cfg: RunConfig, run_dir: Path) -> bool:
-    """Agree to the E-Signature Consent and enter the initials. False to stop."""
+# The two fields on the E-Signature Consent screen, by their real ids.
+#
+# Guessed selectors missed both: `input[id*="nitial"]` does not match
+# `esigintl`, and nothing was looking for the name field at all. The screen
+# then refused to move with no validation message, which reads exactly like a
+# stuck page. Ids taken from the live DOM rather than inferred.
+ESIGN_INITIALS_FIELD = "#esigintl"        # name="eSigInitialsFld", maxlength 2
+ESIGN_NAME_FIELD = "#esigname"            # name="eSigNameFld"
+
+_ESIGN_FILLED_JS = """
+const initials = document.querySelector(arguments[0]);
+const name = document.querySelector(arguments[1]);
+return {
+  initials: initials ? initials.value.trim() : null,
+  name: name ? name.value.trim() : null
+};
+"""
+
+
+def _signature_values(lead) -> tuple[str, str]:
+    """The initials and full name to sign with, taken from the lead.
+
+    Both come from the applicant's own name rather than a constant: the
+    initials box takes two letters and the name box takes the name as the
+    site already holds it, so anything else would simply be wrong. The
+    recording types "XX" into the initials, which is a placeholder rather
+    than a rule.
+    """
+    first = (getattr(lead, "first_name", "") or "").strip()
+    last = (getattr(lead, "last_name", "") or "").strip()
+    initials = f"{first[:1]}{last[:1]}".upper()
+    return initials, " ".join(part for part in (first, last) if part)
+
+
+def _answer_esign(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
+    """Agree to the E-Signature Consent and sign it. False to stop."""
     app = cfg.application
     radios = read_radios(sb)
     if radios and not answer_radio(
@@ -355,26 +389,45 @@ def _answer_esign(sb, cfg: RunConfig, run_dir: Path) -> bool:
         )
         return False
 
-    # The initials box. The full-name field beside it is prefilled by the site.
-    for selector in ('input[name="initials"]', "#initials", 'input[id*="nitial"]'):
-        try:
-            if sb.is_element_visible(selector):
-                human_type(sb, selector, app.esign_initials, cfg)
-                break
-        except Exception:
-            continue
-    else:
-        LOG.warning(
-            "Step 10: no initials field found on the consent screen; "
-            "continuing in case the site does not require one"
+    initials, full_name = _signature_values(lead)
+    if not initials or not full_name:
+        LOG.error(
+            "Step 10: this lead has no usable name to sign with (%r / %r)",
+            getattr(lead, "first_name", ""), getattr(lead, "last_name", ""),
         )
+        return False
 
+    for selector, value, what in (
+        (ESIGN_INITIALS_FIELD, initials, "initials"),
+        (ESIGN_NAME_FIELD, full_name, "signature"),
+    ):
+        try:
+            human_type(sb, selector, value, cfg)
+        except Exception as exc:
+            LOG.error("Step 10: could not enter the %s (%s): %s", what, selector, exc)
+            return False
+
+    # Confirm both took. The screen refuses to continue without them and says
+    # nothing about why, so an empty field presents as a page that will not
+    # move rather than as a field that was missed.
+    filled = sb.execute_script(
+        _ESIGN_FILLED_JS, ESIGN_INITIALS_FIELD, ESIGN_NAME_FIELD
+    ) or {}
+    if not filled.get("initials") or not filled.get("name"):
+        LOG.error(
+            "Step 10: the consent screen did not keep what was typed "
+            "(initials=%r, signature=%r). Stopping.",
+            filled.get("initials"), filled.get("name"),
+        )
+        return False
+
+    LOG.info("Step 10: signed the consent as %s (%s)", full_name, initials)
     capture(sb, run_dir, f"{STEP_NAME}_esignature", save=cfg.save_artifacts)
     advance_screen(sb, cfg, "Step 10", CONTINUE_SELECTORS, settle=SETTLE_AFTER_CONTINUE)
     return True
 
 
-def _answer_household(sb, cfg: RunConfig, run_dir: Path) -> bool:
+def _answer_household(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
     """Answer the one-per-household certification. False to stop.
 
     Each question is answered from its own config field rather than a shared
@@ -464,7 +517,7 @@ def classify_lead(sb, cfg: RunConfig, lead, run_dir: Path, *, submit: bool = Tru
                 )
                 break
             LOG.info("Step 10: answering the %s screen", label)
-            if not handler(sb, cfg, run_dir):
+            if not handler(sb, cfg, lead, run_dir):
                 break
             enter_enrollment_frame(sb, cfg, "Step 10")
             screen = sb.execute_script(_SCREEN_JS) or {}

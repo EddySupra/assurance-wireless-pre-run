@@ -17,6 +17,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from aw_bot.config import RunConfig  # noqa: E402
 from aw_bot.steps import step_10_classify as step10  # noqa: E402
 
+
+class _Lead:
+    """Just the name fields the signature screen reads."""
+
+    first_name = "LINDA"
+    last_name = "JOHNSON"
+
+
+_LEAD = _Lead()
+
 PHONE_HEADINGS = [
     "Choose your phone",
     "Bring Your Own Phone",
@@ -76,7 +86,7 @@ class _Sb:
 
 def test_a_missing_option_stops_the_lead():
     """Picking whichever radio happens to be there is not a substitute."""
-    assert step10._choose_phone(_Sb(found=False), RunConfig(), Path(".")) is False
+    assert step10._choose_phone(_Sb(found=False), RunConfig(), _LEAD, Path(".")) is False
 
 
 def test_a_selection_that_does_not_register_stops_the_lead(monkeypatch):
@@ -86,7 +96,7 @@ def test_a_selection_that_does_not_register_stops_the_lead(monkeypatch):
     monkeypatch.setattr(step10, "capture", lambda *a, **k: {})
     monkeypatch.setattr(step10, "advance_screen", lambda *a, **k: None)
 
-    assert step10._choose_phone(_Sb(checked_after=False), RunConfig(), Path(".")) is False
+    assert step10._choose_phone(_Sb(checked_after=False), RunConfig(), _LEAD, Path(".")) is False
 
 
 def test_a_successful_selection_continues(monkeypatch):
@@ -96,5 +106,5 @@ def test_a_successful_selection_continues(monkeypatch):
     monkeypatch.setattr(step10, "capture", lambda *a, **k: {})
     monkeypatch.setattr(step10, "advance_screen", lambda *a, **k: advanced.append(1))
 
-    assert step10._choose_phone(_Sb(), RunConfig(), Path(".")) is True
+    assert step10._choose_phone(_Sb(), RunConfig(), _LEAD, Path(".")) is True
     assert advanced, "it should press Continue after choosing"
