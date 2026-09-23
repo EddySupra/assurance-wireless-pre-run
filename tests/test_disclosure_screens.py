@@ -313,3 +313,42 @@ def test_an_answer_that_does_not_stick_stops_the_lead(monkeypatch):
 
     sb = _Screen(_three_questions(), holds_after=False)
     assert step10._answer_household(sb, RunConfig(), _LEAD, Path(".")) is False
+
+
+# -- the log has to say what was certified -----------------------------------
+
+def test_the_certification_text_is_read_from_the_row_not_the_label():
+    """These boxes carry a label with no text in it:
+
+        <div aria-labelledby="cert2lbl" role="radiogroup" class="row">
+          <div><div id="cert2lbl">I understand that violating the
+               one-per-household benefit rule ... and potentially,
+               prosecution by the United States government.</div></div>
+          <div><label for="crt2" class="b-contain"><span></span>
+               <input id="crt2"><div class="b-input"></div></label></div>
+        </div>
+
+    so label[for=] logged every one of them as an empty string. The run's log
+    is the record of what was agreed to on somebody's benefits application,
+    and one of these mentions prosecution, so "certifying -- " on its own is
+    not good enough.
+    """
+    js = step10._TICK_CERTIFICATIONS_JS
+    assert "aria-labelledby" in js
+    assert "closest('[aria-labelledby]')" in js
+    # The label is still tried first; the row is the fallback.
+    assert "label[for=" in js
+
+
+def test_the_sweep_stays_scoped_to_the_form():
+    """The nav hamburger is a bare checkbox outside the form on every page."""
+    assert "form input[type=checkbox]" in step10._TICK_CERTIFICATIONS_JS
+    assert "form input[type=checkbox]" in step10._ALL_TICKED_JS
+
+
+def test_disabled_boxes_are_left_out_of_both_scripts():
+    """The first certification is disabled until the questions above it are
+    answered, so a sweep that ignored `disabled` would demand a box the form
+    has not enabled yet."""
+    assert "!b.disabled" in step10._TICK_CERTIFICATIONS_JS
+    assert "!b.disabled" in step10._ALL_TICKED_JS

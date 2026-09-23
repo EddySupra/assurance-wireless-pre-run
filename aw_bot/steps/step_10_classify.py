@@ -368,10 +368,30 @@ const boxes = Array.from(document.querySelectorAll('form input[type=checkbox]'))
     .filter(b => !b.disabled);
 const out = [];
 for (const box of boxes) {
+  /* The label on these boxes holds no text at all -- it is the painted
+     control and nothing else:
+
+       <div aria-labelledby="cert2lbl" role="radiogroup" class="row">
+         <div><div id="cert2lbl">I understand that violating the
+              one-per-household benefit rule ... and potentially,
+              prosecution by the United States government.</div></div>
+         <div><label for="crt2" class="b-contain"><span></span>
+              <input id="crt2"><div class="b-input"></div></label></div>
+       </div>
+
+     so label[for=] logged every certification as an empty string. The run's
+     log is the record of what was agreed to on somebody's benefits
+     application, and one of these mentions prosecution, so the wording has
+     to be resolved -- it lives on the row's aria-labelledby target. */
   const label = box.id ? document.querySelector('label[for="' + box.id + '"]') : null;
-  /* The painted box rather than the label, for the reason given by the
-     programme selector above: a certification's label is a paragraph, and a
-     click aimed at its centre lands on the sentence rather than the control. */
+  let text = ((label && label.innerText) || '').replace(/\s+/g, ' ').trim();
+  if (!text) {
+    const row = box.closest('[aria-labelledby]');
+    const described = row && document.getElementById(row.getAttribute('aria-labelledby'));
+    if (described) text = (described.innerText || '').replace(/\s+/g, ' ').trim();
+  }
+  /* Aim at the painted box, not the label: clicking the input itself lands
+     on whatever is drawn over it. */
   const painted = box.nextElementSibling;
   const usePainted = painted && painted.classList.contains('b-input');
   let selector = null;
@@ -383,7 +403,7 @@ for (const box of boxes) {
   out.push({
     id: box.id || null,
     selector: selector,
-    text: ((label && label.innerText) || '').replace(/\s+/g, ' ').trim().slice(0, 120),
+    text: text.slice(0, 160),
     checked: box.checked
   });
 }
