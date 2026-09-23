@@ -159,6 +159,40 @@ class ApplicationConfig:
     contact_method: str = "Email"
     print_preference: str = "Standard Print"
 
+    # The screens between the qualifying programme and the decision.
+    #
+    # These are answered exactly as the reference recordings answer them, and
+    # they are constants for one specific reason: this run stops at the screen
+    # that states the verdict and never completes the submission. It exists to
+    # find out which bucket a lead falls into, not to file an application, so
+    # nothing entered here is ever submitted to the LifeLine Administrator.
+    # An agent who takes the lead forward re-enters all of it against what the
+    # applicant actually says.
+    #
+    # If that ever changes -- if these applications are finished and handed to
+    # customers -- every value below has to come from the applicant instead,
+    # because each is an attestation about their household rather than a
+    # setting. The same warning already applies to account_pin and the
+    # security answers, and for the same reason.
+    esign_consent: str = "Yes"
+
+    # The initials box on the E-Signature Consent screen. "XX" is what the
+    # recordings type; the full-name field beside it is prefilled by the site.
+    esign_initials: str = "XX"
+
+    # The one-per-household certification, in the order the questions appear:
+    #
+    #   1. Do you live with another adult?                           -> Yes
+    #   2. Does that adult receive a California LifeLine discount?   -> Yes
+    #   3. Do you share income and living expenses with them?        -> No
+    #
+    # Read together these say the applicant shares an address with another
+    # LifeLine recipient but a separate household, which is the combination
+    # the form's own notes describe as still qualifying.
+    household_lives_with_adult: str = "Yes"
+    household_adult_has_lifeline: str = "Yes"
+    household_shares_expenses: str = "No"
+
     # "How do you qualify for California LifeLine Service?" -- the programme
     # the applicant is enrolled in, ticked on the California LifeLine screen.
     #

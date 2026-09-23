@@ -32,8 +32,14 @@ from ..artifacts import capture
 from ..classify import UNKNOWN, classify_screen
 from ..config import RunConfig
 from ..logs import LOG
-from ..human import human_click, pause
-from ..page_utils import advance_screen, body_text, enter_enrollment_frame
+from ..human import human_click, human_type, pause
+from ..page_utils import (
+    advance_screen,
+    answer_radio,
+    body_text,
+    enter_enrollment_frame,
+    read_radios,
+)
 
 STEP_NAME = "step_10_classify"
 
@@ -127,6 +133,54 @@ return {
 """
 
 
+# The two screens between the qualifying programme and the decision. Matched
+# on their own distinctive wording rather than headings, because both put the
+# text that identifies them in the body.
+ESIGN_SIGNAL = "e-signature consent"
+HOUSEHOLD_SIGNAL = "do you live with another adult"
+
+# The three household questions, in the order they appear, paired with the
+# config field that answers each. The hints are matched against the question's
+# own text so a reworded question still finds its answer.
+HOUSEHOLD_QUESTIONS = (
+    ("live with another adult", "household_lives_with_adult"),
+    ("receive a california lifeline discount", "household_adult_has_lifeline"),
+    ("share income and living expenses", "household_shares_expenses"),
+)
+
+# Every certification box on the household screen. They are ticked, not read:
+# the screen will not continue without them.
+_TICK_CERTIFICATIONS_JS = r"""
+const boxes = Array.from(document.querySelectorAll('input[type=checkbox]'))
+    .filter(b => !b.disabled);
+const out = [];
+for (const box of boxes) {
+  const label = box.id ? document.querySelector('label[for="' + box.id + '"]') : null;
+  out.push({
+    id: box.id || null,
+    selector: box.id ? 'label[for="' + box.id + '"]' : null,
+    text: ((label && label.innerText) || '').replace(/\s+/g, ' ').trim().slice(0, 120),
+    checked: box.checked
+  });
+}
+return out;
+"""
+
+_ALL_TICKED_JS = """
+return Array.from(document.querySelectorAll('input[type=checkbox]'))
+    .filter(b => !b.disabled)
+    .every(b => b.checked);
+"""
+
+
+def _is_esign_screen(body: str) -> bool:
+    return ESIGN_SIGNAL in (body or "").lower()
+
+
+def _is_household_screen(body: str) -> bool:
+    return HOUSEHOLD_SIGNAL in (body or "").lower()
+
+
 def _is_qualify_screen(headings: list[str]) -> bool:
     return QUALIFY_HEADING in " | ".join(headings or []).lower()
 
@@ -189,6 +243,86 @@ def _choose_program(sb, cfg: RunConfig, run_dir: Path) -> bool:
     return True
 
 
+def _answer_esign(sb, cfg: RunConfig, run_dir: Path) -> bool:
+    """Agree to the E-Signature Consent and enter the initials. False to stop."""
+    app = cfg.application
+    radios = read_radios(sb)
+    if radios and not answer_radio(
+        sb, radios, "e-signature consent", ("consent", "agree", "esign"),
+        app.esign_consent, cfg,
+    ):
+        LOG.error(
+            "Step 10: could not answer the E-Signature Consent with %r. "
+            "Options were: %s", app.esign_consent, [r.get("label") for r in radios],
+        )
+        return False
+
+    # The initials box. The full-name field beside it is prefilled by the site.
+    for selector in ('input[name="initials"]', "#initials", 'input[id*="nitial"]'):
+        try:
+            if sb.is_element_visible(selector):
+                human_type(sb, selector, app.esign_initials, cfg)
+                break
+        except Exception:
+            continue
+    else:
+        LOG.warning(
+            "Step 10: no initials field found on the consent screen; "
+            "continuing in case the site does not require one"
+        )
+
+    capture(sb, run_dir, f"{STEP_NAME}_esignature", save=cfg.save_artifacts)
+    advance_screen(sb, cfg, "Step 10", CONTINUE_SELECTORS, settle=SETTLE_AFTER_CONTINUE)
+    return True
+
+
+def _answer_household(sb, cfg: RunConfig, run_dir: Path) -> bool:
+    """Answer the one-per-household certification. False to stop.
+
+    Each question is answered from its own config field rather than a shared
+    default, so the three cannot silently drift into agreeing with each other.
+    Refuses if a question cannot be matched: a certification about somebody's
+    living arrangements is not a thing to answer by guessing which button is
+    nearest.
+    """
+    app = cfg.application
+
+    for hint, field in HOUSEHOLD_QUESTIONS:
+        answer = getattr(app, field)
+        radios = read_radios(sb)
+        if not radios:
+            LOG.error("Step 10: the household screen has no answerable questions")
+            return False
+        if not answer_radio(sb, radios, hint, (hint,), answer, cfg):
+            LOG.error(
+                "Step 10: could not answer %r with %r. Options were: %s",
+                hint, answer, [r.get("label") for r in radios],
+            )
+            return False
+        LOG.info("Step 10: %s -- %s", hint, answer)
+        pause(cfg, 0.3)
+
+    # The certifications. The screen will not continue without them, and the
+    # last one is the electronic signature.
+    for box in sb.execute_script(_TICK_CERTIFICATIONS_JS) or []:
+        if box.get("checked") or not box.get("selector"):
+            continue
+        LOG.info("Step 10: certifying -- %s", box.get("text"))
+        human_click(sb, box["selector"], cfg)
+        pause(cfg, 0.3)
+
+    if not sb.execute_script(_ALL_TICKED_JS):
+        LOG.error(
+            "Step 10: not every certification stayed ticked, so the screen "
+            "would be submitted incomplete. Stopping."
+        )
+        return False
+
+    capture(sb, run_dir, f"{STEP_NAME}_household", save=cfg.save_artifacts)
+    advance_screen(sb, cfg, "Step 10", CONTINUE_SELECTORS, settle=SETTLE_AFTER_CONTINUE)
+    return True
+
+
 def classify_lead(sb, cfg: RunConfig, lead, run_dir: Path, *, submit: bool = True) -> dict:
     """Classify the screen after PERSONAL INFO. Returns the step inventory
     with `verdict` and `screen` added.
@@ -208,14 +342,29 @@ def classify_lead(sb, cfg: RunConfig, lead, run_dir: Path, *, submit: bool = Tru
     # one that asks how the applicant qualifies, so the verdict is read from a
     # screen that actually states something.
     for _ in range(MAX_PASS_THROUGH):
+        seen = body_text(sb)
+
+        # The screens that ask something. Each is answered from config and
+        # then continued past; any of them refusing stops the lead rather
+        # than carrying on with the question unanswered.
+        answered = None
         if _is_qualify_screen(headings):
+            answered = ("qualification", _choose_program)
+        elif _is_esign_screen(seen):
+            answered = ("e-signature consent", _answer_esign)
+        elif _is_household_screen(seen):
+            answered = ("one-per-household certification", _answer_household)
+
+        if answered:
+            label, handler = answered
             if not submit:
                 LOG.warning(
-                    "Step 10: on the qualification screen; stopping before it "
-                    "is answered (dry run)"
+                    "Step 10: on the %s screen; stopping before it is "
+                    "answered (dry run)", label,
                 )
                 break
-            if not _choose_program(sb, cfg, run_dir):
+            LOG.info("Step 10: answering the %s screen", label)
+            if not handler(sb, cfg, run_dir):
                 break
             enter_enrollment_frame(sb, cfg, "Step 10")
             screen = sb.execute_script(_SCREEN_JS) or {}
