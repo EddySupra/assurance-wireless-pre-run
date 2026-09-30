@@ -391,22 +391,26 @@ def human_click(sb, selector: str, cfg: RunConfig, timeout: int | None = None) -
             return
         _refuse_synthetic("click", selector, cfg)
 
+    _drift_to(sb, selector, cfg)
+    pause(cfg, 0.4)
+
     # Press, hold briefly, release -- a finger is on the button for something
     # like 60-140ms. `element.click()` sends mousedown and mouseup in the same
     # instant, so every click in the run has a dwell time of zero, identical
     # every time. That is measurable and no hand produces it.
-    #
-    # ActionChains first, because it is the longest-proven path here. It
-    # refuses inside the enrollment frame -- see _pressed_click -- and that is
-    # where the CDP path takes over: explicit coordinates, so the
-    # top-level-viewport limitation that stops ActionChains does not apply.
-    # Both carry isTrusted; the difference is only which one can address the
-    # frame. Tried before _drift_to because the CDP path draws its own
-    # approach, and two approaches to the same point is one more than a hand
-    # makes.
     if _pressed_click(sb, selector, cfg):
         return
 
+    # Only when asked for, and only after the drift above has already put the
+    # pointer on the target -- so this adds the press duration to the approach
+    # that was always here rather than replacing it.
+    #
+    # An earlier version of this ran _pressed_click and the CDP click *before*
+    # _drift_to, on the reasoning that the CDP path draws its own approach.
+    # That silently removed the Bezier drift from every click ActionChains
+    # handles, which is all of steps 1 to 4 -- a change to the public pages
+    # nobody asked for, in a run that was also the first to see a Turnstile
+    # checkbox at step 9. The order below is the order that was working.
     if cfg.cdp_input:
         try:
             element = sb.wait_for_element_visible(selector, timeout=timeout)
@@ -415,9 +419,6 @@ def human_click(sb, selector: str, cfg: RunConfig, timeout: int | None = None) -
                 return
         except WebDriverException as exc:
             LOG.debug("CDP click on %s could not run: %s", selector, exc)
-
-    _drift_to(sb, selector, cfg)
-    pause(cfg, 0.4)
 
     try:
         sb.click(selector, timeout=timeout)

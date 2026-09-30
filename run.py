@@ -356,12 +356,13 @@ def main() -> int:
              "a single worker, and you cannot use the machine meanwhile.",
     )
     parser.add_argument(
-        "--no-cdp-input",
+        "--cdp-input",
         action="store_true",
-        help="do not give in-frame clicks a real press duration through CDP. "
-             "On by default; this is for comparing against the old behaviour, "
-             "where a click inside the enrollment frame had a dwell time of "
-             "zero because ActionChains refuses in there.",
+        help="give in-frame clicks a real press duration through CDP Input. "
+             "OFF by default: it was on for one parallel run and a Cloudflare "
+             "Turnstile checkbox appeared at step 9, which has not been "
+             "explained. Needs its own single-worker run against step 9 before "
+             "it is trusted.",
     )
     parser.add_argument(
         "--allow-synthetic-fallback",
@@ -470,8 +471,8 @@ def main() -> int:
     # failing on "the pointer was taken by somebody else mid-click" rather than
     # filling in forms. Refused up front, because the alternative is a batch
     # that looks like it is working and is not.
-    if args.no_cdp_input:
-        cfg.cdp_input = False
+    if args.cdp_input:
+        cfg.cdp_input = True
 
     if args.real_input and args.workers > 1:
         print(

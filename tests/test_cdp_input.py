@@ -146,10 +146,12 @@ def test_a_failure_before_the_press_reports_failure(monkeypatch):
 
 # -- how it is wired in ------------------------------------------------------
 
-def test_it_is_on_by_default_and_needs_no_desktop():
-    """Unlike --real-input, so it works with any number of workers."""
-    assert RunConfig().cdp_input is True
-    assert RunConfig().real_input is False
+def test_it_is_off_by_default():
+    """It was on for one parallel run and a Cloudflare Turnstile checkbox
+    appeared at step 9 -- the step whose whole history is about the browser
+    doing things a hand-run session does not. Unexplained, so the default is
+    the configuration that was working, and this stays behind a flag."""
+    assert RunConfig().cdp_input is False
 
 
 def test_action_chains_is_still_tried_first():
@@ -159,7 +161,9 @@ def test_action_chains_is_still_tried_first():
     assert body.index("_pressed_click(sb, selector, cfg)") < body.index("cdp_input.click")
 
 
-def test_the_cdp_click_can_be_turned_off_for_comparison():
+def test_the_cdp_click_is_opt_in():
     source = Path("run.py").read_text(encoding="utf-8")
-    assert "--no-cdp-input" in source
-    assert "cfg.cdp_input = False" in source
+    assert "--cdp-input" in source
+    assert "cfg.cdp_input = True" in source
+    # And nothing turns it on without being asked.
+    assert "cdp_input: bool = False" in Path("aw_bot/config.py").read_text(encoding="utf-8")

@@ -394,12 +394,22 @@ class RunConfig:
     # Click through CDP Input rather than only WebDriver, which gives the
     # press a real duration inside the enrollment frame.
     #
-    # On by default because it costs nothing and closes a measurable gap:
-    # ActionChains refuses in that frame (see human._pressed_click), so
-    # in-frame clicks fell through to sb.click(), whose dwell time is zero on
-    # every click in the run. Unlike --real-input this touches nothing outside
-    # the browser, so it works with any number of workers.
-    cdp_input: bool = True
+    # OFF by default, and it stays off until it has been shown not to do this.
+    #
+    # It was on for one run of three workers from row 2, and a Cloudflare
+    # Turnstile "Verify you are human" checkbox appeared at step 9 -- the step
+    # whose whole history is about the browser doing things a hand-run session
+    # does not. That does not prove the clicks caused it: the same run was also
+    # the first with several browsers at once and the first without
+    # --real-input, and Turnstile escalates on its own terms. But it is a new,
+    # unproven input mechanism sitting directly in the path that reaches step
+    # 9, and step 9 is the one place on this site where being wrong costs a day
+    # rather than a lead.
+    #
+    # So the default is the configuration that was working. Turning this on is
+    # --cdp-input, and it wants its own single-worker run against step 9 before
+    # it is trusted with anything else.
+    cdp_input: bool = False
 
     real_input: bool = False
 
