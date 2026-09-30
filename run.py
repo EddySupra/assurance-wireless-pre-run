@@ -453,6 +453,30 @@ def main() -> int:
         verbose=args.verbose,
         workers=args.workers,
     )
+    # Real input and parallel workers cannot both be had.
+    #
+    # --real-input drives the machine's own mouse and keyboard, and the machine
+    # has one cursor. Two workers would take turns yanking it across the screen
+    # and each would find the pointer somewhere it did not leave it -- which
+    # real_input notices and refuses over, so the run would spend its time
+    # failing on "the pointer was taken by somebody else mid-click" rather than
+    # filling in forms. Refused up front, because the alternative is a batch
+    # that looks like it is working and is not.
+    if args.real_input and args.workers > 1:
+        print(
+            "--real-input drives this machine's actual mouse and keyboard, so it",
+            f"cannot run {args.workers} browsers at once -- there is one cursor and",
+            "they would fight over it.",
+            "",
+            "Either:",
+            "  --real-input      one lead at a time, strongest input",
+            f"  --workers {args.workers}       parallel, browser-level input -- still",
+            "                    isTrusted, still paced and curved (see human.py)",
+            sep=chr(10),
+            file=sys.stderr,
+        )
+        return 2
+
     if args.gologin_token:
         cfg.gologin.token = args.gologin_token.strip()
     if args.gologin_profile:
