@@ -391,6 +391,16 @@ class RunConfig:
     # timings and whether events are trusted, and injected input carries none
     # of that. Off by default because it takes over the desktop: it needs a
     # visible window, a single worker, and the machine to itself while it runs.
+    # Click through CDP Input rather than only WebDriver, which gives the
+    # press a real duration inside the enrollment frame.
+    #
+    # On by default because it costs nothing and closes a measurable gap:
+    # ActionChains refuses in that frame (see human._pressed_click), so
+    # in-frame clicks fell through to sb.click(), whose dwell time is zero on
+    # every click in the run. Unlike --real-input this touches nothing outside
+    # the browser, so it works with any number of workers.
+    cdp_input: bool = True
+
     real_input: bool = False
 
     # Let a failed real-input action finish with injected events instead of

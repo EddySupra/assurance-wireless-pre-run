@@ -28,7 +28,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 
-from . import real_input
+from . import cdp_input, real_input
 from .config import RunConfig
 from .errors import RealInputError
 from .logs import LOG
@@ -391,15 +391,33 @@ def human_click(sb, selector: str, cfg: RunConfig, timeout: int | None = None) -
             return
         _refuse_synthetic("click", selector, cfg)
 
-    _drift_to(sb, selector, cfg)
-    pause(cfg, 0.4)
-
     # Press, hold briefly, release -- a finger is on the button for something
     # like 60-140ms. `element.click()` sends mousedown and mouseup in the same
     # instant, so every click in the run has a dwell time of zero, identical
     # every time. That is measurable and no hand produces it.
+    #
+    # ActionChains first, because it is the longest-proven path here. It
+    # refuses inside the enrollment frame -- see _pressed_click -- and that is
+    # where the CDP path takes over: explicit coordinates, so the
+    # top-level-viewport limitation that stops ActionChains does not apply.
+    # Both carry isTrusted; the difference is only which one can address the
+    # frame. Tried before _drift_to because the CDP path draws its own
+    # approach, and two approaches to the same point is one more than a hand
+    # makes.
     if _pressed_click(sb, selector, cfg):
         return
+
+    if cfg.cdp_input:
+        try:
+            element = sb.wait_for_element_visible(selector, timeout=timeout)
+            if cdp_input.click(sb, element, cfg):
+                LOG.info("Clicked %s with a browser-level press", selector)
+                return
+        except WebDriverException as exc:
+            LOG.debug("CDP click on %s could not run: %s", selector, exc)
+
+    _drift_to(sb, selector, cfg)
+    pause(cfg, 0.4)
 
     try:
         sb.click(selector, timeout=timeout)

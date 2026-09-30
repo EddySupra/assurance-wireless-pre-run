@@ -356,6 +356,14 @@ def main() -> int:
              "a single worker, and you cannot use the machine meanwhile.",
     )
     parser.add_argument(
+        "--no-cdp-input",
+        action="store_true",
+        help="do not give in-frame clicks a real press duration through CDP. "
+             "On by default; this is for comparing against the old behaviour, "
+             "where a click inside the enrollment frame had a dwell time of "
+             "zero because ActionChains refuses in there.",
+    )
+    parser.add_argument(
         "--allow-synthetic-fallback",
         action="store_true",
         help="with --real-input, let an action that could not be done with the "
@@ -462,6 +470,9 @@ def main() -> int:
     # failing on "the pointer was taken by somebody else mid-click" rather than
     # filling in forms. Refused up front, because the alternative is a batch
     # that looks like it is working and is not.
+    if args.no_cdp_input:
+        cfg.cdp_input = False
+
     if args.real_input and args.workers > 1:
         print(
             "--real-input drives this machine's actual mouse and keyboard, so it",
