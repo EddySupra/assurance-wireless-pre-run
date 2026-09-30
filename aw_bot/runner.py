@@ -326,6 +326,18 @@ _BROWSER_GONE_SIGNALS = (
     "failed to establish a new connection",
     "connection aborted",
     "remote end closed connection",
+    # Chrome's renderer wedging, which arrives from Selenium as a plain
+    # TimeoutException and so matched nothing above:
+    #
+    #   TimeoutException: Message: timeout: Timed out receiving message from
+    #   renderer: -0.003
+    #
+    # Measured on row 256, on `driver.get()` for the start page -- nothing had
+    # been entered and no form existed yet, and the lead was thrown away
+    # rather than handed a working browser. A wedged renderer is a dead
+    # browser by any useful definition, and another one is the right answer.
+    "timed out receiving message from renderer",
+    "unable to receive message from renderer",
 )
 
 

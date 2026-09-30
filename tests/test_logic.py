@@ -567,3 +567,37 @@ def test_more_than_one_screen_shares_the_need_documents_verdict():
     would be passing vacuously."""
     sharing = [s for s in _SCREENS if s.verdict == _ND]
     assert len(sharing) >= 2, [s.label for s in sharing]
+
+
+# -- a wedged renderer is a dead browser -------------------------------------
+
+from aw_bot.runner import _browser_died as _died  # noqa: E402
+
+
+def test_a_renderer_timeout_is_worth_another_browser():
+    """Row 256 hit this on driver.get() for the start page -- nothing entered,
+    no form yet -- and the lead was thrown away instead of retried.
+
+    Selenium reports it as a plain TimeoutException, so none of the
+    session/connection signals matched it.
+    """
+    exc = Exception(
+        "Message: timeout: Timed out receiving message from renderer: -0.003\n"
+        "  (Session info: chrome=151.0.7922.173)"
+    )
+    assert _died(exc) is True
+
+
+def test_the_other_renderer_wording_matches_too():
+    assert _died(Exception("unable to receive message from renderer")) is True
+
+
+def test_a_page_timeout_is_still_not_a_dead_browser():
+    """An ordinary wait timing out says something about the page, not the
+    browser, and retrying it on a new profile would repeat the same wait."""
+    for message in (
+        "Step 2: URL never reached any of ['/apply-now'] within 90s",
+        "Step 10: clicked Continue but the screen never changed",
+        "Message: timeout: Timed out waiting for element to be visible",
+    ):
+        assert _died(Exception(message)) is False, message
