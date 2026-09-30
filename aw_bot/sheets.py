@@ -1,10 +1,12 @@
-"""Reads leads from the Google Sheet via a gspread service account.
+"""Reads leads from the Google Sheet via a gspread service account, and
+writes each lead's verdict back beside it.
 
 Uses get_all_values() rather than get_all_records() on purpose: column F has
 no header, and get_all_records raises on blank/duplicate header cells.
 """
 
 import csv
+import threading
 from pathlib import Path
 
 import gspread
@@ -136,6 +138,75 @@ def _map_columns(headers: list[str]) -> dict[str, int]:
         columns[field] = index
 
     return columns
+
+
+# The worksheet used for writing verdicts back, and a lock around it.
+#
+# Cached because opening the spreadsheet costs two API calls and the verdict is
+# written once per lead; locked because one gspread client is shared by every
+# worker and nothing about it promises to be thread-safe.
+_write_lock = threading.Lock()
+_write_sheet = None
+
+
+def _verdict_worksheet(cfg: SheetConfig):
+    """The worksheet to write into, opened once and kept."""
+    global _write_sheet
+    if _write_sheet is not None:
+        return _write_sheet
+
+    client = gspread.service_account(filename=str(cfg.credentials_path))
+    spreadsheet = (
+        client.open_by_key(cfg.spreadsheet_key) if cfg.spreadsheet_key
+        else client.open_by_url(cfg.spreadsheet_url)
+    )
+    _write_sheet = (
+        spreadsheet.worksheet(cfg.worksheet_name) if cfg.worksheet_name
+        else spreadsheet.sheet1
+    )
+    return _write_sheet
+
+
+def reset_write_cache() -> None:
+    """Forget the cached worksheet. For tests, and for a changed config."""
+    global _write_sheet
+    with _write_lock:
+        _write_sheet = None
+
+
+def write_verdict(cfg: SheetConfig, row_number: int, verdict: str) -> bool:
+    """Write `verdict` beside the lead's row. True if it landed.
+
+    Never raises. The classification is already saved in the run's results.csv
+    and printed in the log, so a sheet that cannot be written is worth a
+    warning and nothing more -- it must not take down a run, or lose the
+    verdicts of the leads still to come.
+    """
+    if not cfg.write_verdicts:
+        return False
+    if not row_number or not (verdict or "").strip():
+        return False
+
+    cell = f"{cfg.verdict_column.upper()}{int(row_number)}"
+    try:
+        with _write_lock:
+            worksheet = _verdict_worksheet(cfg)
+            worksheet.update_acell(cell, verdict)
+    except gspread.exceptions.APIError as exc:
+        LOG.warning(
+            "Could not write %r to %s: %s. The verdict is still in results.csv.",
+            verdict, cell, exc,
+        )
+        return False
+    except Exception as exc:
+        LOG.warning(
+            "Could not write %r to %s (%s: %s). The verdict is still in "
+            "results.csv.", verdict, cell, type(exc).__name__, exc,
+        )
+        return False
+
+    LOG.info("Wrote %r to %s", verdict, cell)
+    return True
 
 
 def _letter_index(letter: str) -> int:

@@ -35,6 +35,7 @@ from .errors import (
     ThrottledError,
 )
 from .lead import Lead
+from .sheets import write_verdict
 from .logs import LOG, run_id, setup
 from .page_utils import is_vendor_outage
 from .steps.step_00_direct_frame import open_application_frame
@@ -115,7 +116,7 @@ def run_batch(
     for position, lead in enumerate(leads, start=1):
         pending.put((position, lead))
 
-    state = _BatchState(total=len(leads))
+    state = _BatchState(total=len(leads), sheet_cfg=cfg.sheet)
     threads = [
         threading.Thread(
             target=_worker,
@@ -162,12 +163,14 @@ def run_batch(
 class _BatchState:
     """Shared, lock-guarded bookkeeping across workers."""
 
-    def __init__(self, total: int) -> None:
+    def __init__(self, total: int, sheet_cfg=None) -> None:
         self.lock = threading.Lock()
         self.stop = threading.Event()
         self.results: dict[str, list] = {name: [] for name in OUTCOMES}
         self.rows: list[dict] = []
         self.total = total
+        # None disables the write-back, which is what the tests want.
+        self.sheet_cfg = sheet_cfg
 
     def record(self, lead: Lead, outcome: str, detail: str, verdict: str = "") -> None:
         with self.lock:
@@ -181,6 +184,18 @@ class _BatchState:
                     "detail": detail,
                 }
             )
+
+        # Put the verdict back in the sheet, beside the lead it belongs to.
+        #
+        # Outside the lock on purpose: this is a network call, and holding the
+        # batch lock across it would stop every other worker recording while
+        # one of them talks to Google.
+        #
+        # Only when there is a verdict. A lead that died on a browser or a
+        # navigation timeout was never classified, and writing anything for it
+        # would dress a run problem up as a decision about an applicant.
+        if verdict and self.sheet_cfg is not None:
+            write_verdict(self.sheet_cfg, lead.row_number or 0, verdict)
 
 
 def _worker(

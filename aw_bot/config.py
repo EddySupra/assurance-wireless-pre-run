@@ -44,6 +44,17 @@ class SheetConfig:
     # 1-based row holding the column titles; data starts on the next row.
     header_row: int = 1
 
+    # Where each lead's verdict is written back, so the sheet carries the
+    # classification rather than it living only in the run's results.csv.
+    #
+    # Only written when the wizard actually stated a verdict. A lead that
+    # failed on a browser or a navigation timeout was never classified, and
+    # writing anything for it would present a run problem as a decision about
+    # an applicant -- the cell is left alone so the row still reads as needing
+    # a re-run.
+    write_verdicts: bool = True
+    verdict_column: str = "L"
+
 
 @dataclass
 class GoLoginConfig:
