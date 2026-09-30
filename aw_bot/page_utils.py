@@ -1508,6 +1508,7 @@ def advance_screen(
     selectors,
     timeout: int | None = None,
     settle: float = 0.0,
+    allow_reclick: bool = False,
 ) -> list[str]:
     """Click Continue and confirm the wizard actually moved on.
 
@@ -1515,6 +1516,11 @@ def advance_screen(
     headings changing rather than by a navigation. If they do not change, the
     form almost certainly rejected something -- surface its own validation text
     rather than a bare timeout.
+
+    `allow_reclick` permits exactly one further press of Continue when the
+    screen has given no reason at all for staying put. Off by default, and it
+    belongs only on a screen whose Continue starts a lookup rather than
+    committing a submission -- see _press_continue_again.
 
     Returns the new screen's headings.
     """
@@ -1923,10 +1929,113 @@ def advance_screen(
     # capture could not say which control, if any, was empty.
     _log_required_state(sb, step_label)
 
+    # One more press of Continue, where the caller has said it is safe.
+    #
+    # Everything above has been ruled out by this point: no modal, no spinner,
+    # no Turnstile error, nothing in front of the frame, and -- because of the
+    # `not errors` guard -- no validation message either. The screen has given
+    # no reason whatsoever for staying where it is.
+    #
+    # Two things can produce that, and they want opposite answers. Either the
+    # host's backend never answered, in which case another click changes
+    # nothing; or the click never reached the button's handler, in which case
+    # it is the only thing that will. The second is not hypothetical on this
+    # site: a real click on the service-terms box, confirmed on target by
+    # elementFromPoint, left the input `ng-pristine` -- the app never saw it.
+    # If that happens to a checkbox it can happen to a button, and until now
+    # this function clicked once and only watched, so it was never tested.
+    #
+    # Gated per-caller because pressing Continue twice is only harmless where
+    # it starts a lookup rather than committing something. The account review
+    # screen qualifies: its Continue asks the California LifeLine
+    # Administrator to check eligibility. A screen that submits an application
+    # does not, and stays single-click.
+    if allow_reclick and not errors:
+        moved = _press_continue_again(
+            sb, cfg, step_label, selector, before, budget, settle
+        )
+        if moved:
+            return moved
+
     raise PageMismatchError(
         f"{step_label}: clicked Continue but the screen never changed. "
         + (f"Form errors: {errors}" if errors else "No validation message was shown.")
+        + (" A second Continue did not move it either, so the click is landing "
+           "and the host is not answering." if allow_reclick else "")
     )
+
+
+def _press_continue_again(
+    sb, cfg: RunConfig, step_label: str, selector: str,
+    before: list[str], budget: float, settle: float,
+) -> list[str] | None:
+    """Press Continue once more and watch. Headings if it moved, else None.
+
+    Deliberately says in the log which of the two causes it just decided, so
+    the next occurrence does not have to be diagnosed from scratch.
+    """
+    if not first_visible(sb, (selector,)):
+        LOG.warning(
+            "%s: Continue is no longer on the screen, so there is nothing to "
+            "press again", step_label,
+        )
+        return None
+
+    LOG.warning(
+        "%s: the screen gave no reason for staying put -- pressing Continue "
+        "once more to find out whether the first click reached it", step_label,
+    )
+
+    try:
+        bring_framed_element_into_view(sb, selector, cfg)
+        human_click(sb, selector, cfg)
+    except Exception as exc:
+        LOG.warning("%s: the second Continue could not be clicked: %s", step_label, exc)
+        return None
+
+    if settle > 0:
+        LOG.info("%s: hands off for %.0fs after the second Continue", step_label, settle)
+        time.sleep(settle)
+
+    deadline = time.time() + budget
+    while time.time() < deadline:
+        modal = modal_message(sb)
+        if modal and not is_progress_modal(modal):
+            # A rejection arriving only now is still the form answering the
+            # question this run asks, so it must be classified rather than
+            # reported as a stuck screen.
+            verdict = rejection_verdict(modal)
+            if verdict:
+                raise LeadRejectedError(
+                    f"{step_label}: the form rejected this lead on a second "
+                    f"Continue -- {modal}", verdict,
+                )
+            LOG.warning(
+                "%s: the second Continue produced a message rather than a new "
+                "screen -- %s", step_label, modal,
+            )
+            return None
+
+        if is_busy(sb):
+            deadline = min(time.time() + budget, deadline + 2.0)
+            time.sleep(2.0)
+            continue
+
+        after = screen_headings(sb)
+        if after and after != before:
+            LOG.warning(
+                "%s: the second Continue moved it. The first click was not "
+                "reaching the button -- this is ours, not the host's.",
+                step_label,
+            )
+            return after
+        time.sleep(2.0)
+
+    LOG.warning(
+        "%s: the second Continue did nothing either, so the clicks are landing "
+        "and the host is not answering", step_label,
+    )
+    return None
 
 
 # Every control the screen marks required, and what it holds right now.

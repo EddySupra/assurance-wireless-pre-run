@@ -913,9 +913,22 @@ def classify_lead(sb, cfg: RunConfig, lead, run_dir: Path, *, submit: bool = Tru
 
         LOG.info("Step 10: %s screen -- continuing past it", name)
         capture(sb, run_dir, f"{STEP_NAME}_{name.replace(' ', '_')}", save=cfg.save_artifacts)
+        # The one screen allowed a second press of Continue.
+        #
+        # These are the acknowledge-and-continue screens -- the account
+        # review being the only one so far -- and nothing on them is
+        # submitted. Its Continue asks the California LifeLine Administrator
+        # to check eligibility, so pressing it twice repeats a lookup rather
+        # than committing anything. Row 245 sat on this exact screen for 106
+        # seconds after a click that real-input had confirmed on target, with
+        # every control valid and no message of any kind, and a single click
+        # could never tell us whether the click or the host was at fault.
+        #
+        # Every screen that answers a question keeps its single click.
         advance_screen(
             sb, cfg, "Step 10", CONTINUE_SELECTORS,
             settle=SETTLE_AFTER_CONTINUE,
+            allow_reclick=True,
         )
         enter_enrollment_frame(sb, cfg, "Step 10")
         screen = sb.execute_script(_SCREEN_JS) or {}
