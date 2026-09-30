@@ -83,14 +83,6 @@ def list_profiles(token: str) -> int:
 DISPOSABLE_PREFIX = "aw-"
 
 
-def _is_profile_cap(exc: Exception) -> bool:
-    """Is this GoLogin saying the account has no room for another profile?"""
-    text = str(exc).lower()
-    return "max profiles" in text or (
-        "403" in text and "profile" in text
-    )
-
-
 def _is_disposable(profile: dict) -> bool:
     return str(profile.get("name") or "").startswith(DISPOSABLE_PREFIX)
 
@@ -242,18 +234,6 @@ def create_disposable_profile(cfg: RunConfig, worker_id: int = 1) -> tuple[str, 
     try:
         created = gl.createProfileRandomFingerprint({"os": os_choice, "name": name})
     except Exception as exc:
-        # The account being full is the one failure here with a specific
-        # answer, and the bare 403 does not give it. Every worker hits this at
-        # the same moment when it happens, so without naming the cause the log
-        # fills with identical browser failures and reads like the site
-        # refusing us.
-        if _is_profile_cap(exc):
-            raise GoLoginError(
-                f"GoLogin will not create another profile: the account is at "
-                f"its profile allowance ({exc}). Either clear leftovers with "
-                f"'python run.py --cleanup-profiles', or lower --workers -- "
-                f"each worker holds one profile for the length of its lead."
-            ) from exc
         raise GoLoginError(f"Could not create a GoLogin profile: {exc}") from exc
 
     profile_id = _created_id(created)

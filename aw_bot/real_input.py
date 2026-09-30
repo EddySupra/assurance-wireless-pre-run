@@ -24,7 +24,6 @@ input never costs reliability.
 """
 
 import random
-import threading
 import time
 
 from .logs import LOG
@@ -316,6 +315,7 @@ def _park_pointer_over_document(sb, box: dict) -> bool:
     scroll aimed at the wrong document is better than no scroll at all, and
     the caller's later checks still have to pass.
     """
+    global _expected_pos
 
     origin = _viewport_origin(sb)
     if not origin:
@@ -329,7 +329,7 @@ def _park_pointer_over_document(sb, box: dict) -> bool:
         pyautogui.moveTo(int(centre_x), int(centre_y), duration=random.uniform(0.1, 0.25))
         # Record it, or the next action sees the pointer somewhere it did not
         # put it and reports the run's own move as a person taking the mouse.
-        _set_expected_pos((int(centre_x), int(centre_y)))
+        _expected_pos = (int(centre_x), int(centre_y))
         time.sleep(random.uniform(0.04, 0.12))
         return True
     except Exception as exc:
@@ -408,25 +408,13 @@ def reading_pause(cfg) -> None:
 # steps 5 to 10 was aimed at a point well off the monitor, "succeeded", and
 # did nothing. Because the hit test ran in the same frame coordinates, it
 # agreed with the bad point and reported the target was there.
-# Per thread, not per module.
-#
-# With several workers each drives its own browser, in its own window, with
-# its own enrollment frame at its own offset. A module-level value means the
-# last worker to enter a frame decides where every other worker aims -- so a
-# click computed for window A is delivered into window B, lands on whatever
-# happens to be there, and the hit test agrees because it runs in the same
-# wrong coordinates. That is the single-worker "lead 2 always failed" bug
-# again, except concurrent and therefore much harder to read.
-_state = threading.local()
+_frame_origin: dict | None = None
 
 
 def set_frame_origin(data: dict | None) -> None:
     """Record the frame's position, measured from the top document."""
-    _state.frame_origin = data
-
-
-def _get_frame_origin() -> dict | None:
-    return getattr(_state, "frame_origin", None)
+    global _frame_origin
+    _frame_origin = data
 
 
 def reset_for_new_session() -> None:
@@ -445,15 +433,15 @@ def reset_for_new_session() -> None:
     viewport and was refused as unreachable -- on the second lead of every
     run, never the first.
     """
-    _state.frame_origin = None
-    _state.expected_pos = None
+    global _frame_origin, _expected_pos
+    _frame_origin = None
+    _expected_pos = None
 
 
 def _viewport_origin(sb) -> dict | None:
     """The screen origin of the top-level viewport, plus the frame's offset in it."""
-    origin_now = _get_frame_origin()
-    if origin_now:
-        return dict(origin_now)
+    if _frame_origin:
+        return dict(_frame_origin)
     try:
         origin = sb.execute_script(_VIEWPORT_ORIGIN_JS)
     except Exception as exc:
@@ -468,34 +456,25 @@ def _viewport_origin(sb) -> dict | None:
 
 # Why the last aim was refused, so the caller can say which of the five
 # reasons fired instead of printing one generic sentence for all of them.
+_last_refusal: str = ""
+
+
 def last_refusal() -> str:
-    """Why the most recent screen_point returned None, in this thread."""
-    return getattr(_state, "last_refusal", "") or (
-        "could not work out where the element is on screen"
-    )
+    """Why the most recent screen_point returned None."""
+    return _last_refusal or "could not work out where the element is on screen"
 
 
 def _refuse(reason: str) -> None:
-    _state.last_refusal = reason
+    global _last_refusal
+    _last_refusal = reason
     LOG.debug("Not aiming: %s", reason)
 
 
-def aim_point(sb, element) -> tuple[float, float, dict] | None:
-    """A point to click inside this element, in top-level viewport coordinates.
+def screen_point(sb, element) -> tuple[int, int] | None:
+    """Where to aim on the physical screen for this element, or None.
 
-    Returns (x, y, origin) or None with the reason recorded by _refuse.
-
-    This is the geometry both input paths share. real_input adds the window's
-    screen origin to it and drives the desktop cursor there; cdp_input hands
-    the same point straight to the browser. Extracted rather than copied on
-    purpose: the rules here were each arrived at by losing leads to their
-    absence -- aiming at the visible intersection rather than the corner,
-    refusing a sliver too thin to hit, refusing when something is drawn over
-    the target -- and a second copy would eventually stop agreeing with this
-    one about them.
-
-    A point somewhere inside the element rather than dead centre: people do
-    not click the exact middle of a button every time.
+    Returns a point somewhere inside the element rather than dead centre --
+    people do not click the exact middle of a button every time.
     """
     try:
         origin = _viewport_origin(sb)
@@ -569,30 +548,22 @@ def aim_point(sb, element) -> tuple[float, float, dict] | None:
         )
         return None
 
-    # Top-level viewport coordinates: the frame offset added back on, so the
-    # point means the same thing to the window as it does to the frame.
-    return (origin["fx"] + viewport_x, origin["fy"] + viewport_y, origin)
-
-
-def screen_point(sb, element) -> tuple[int, int] | None:
-    """Where to aim on the physical screen for this element, or None."""
-    aimed = aim_point(sb, element)
-    if aimed is None:
-        return None
-    top_x, top_y, origin = aimed
-
+    # The hit test above used document-relative coordinates, which is what
+    # elementFromPoint wants; the screen point needs the frame offset added.
     screen = (
-        int(origin["x"] + top_x),
-        int(origin["y"] + top_y),
+        int(origin["x"] + origin["fx"] + viewport_x),
+        int(origin["y"] + origin["fy"] + viewport_y),
     )
-    # Every conversion here goes through the same origin, so they all agree
-    # with each other whether or not it is right. When the aim is wrong the
-    # only evidence is the numbers themselves, so record them.
+
+    # Every check from here on converts through this same origin, so they all
+    # agree with each other whether or not it is right. When the aim is wrong
+    # the only evidence is the numbers themselves, so record them.
     LOG.debug(
-        "aim: frame=(%.0f,%.0f) top=(%.0f,%.0f) window=(%.0f,%.0f) "
-        "viewport=%sx%s -> screen=%s",
-        top_x - origin["fx"], top_y - origin["fy"], top_x, top_y,
-        origin["x"], origin["y"], origin["w"], origin["h"], screen,
+        "aim: doc=(%.0f,%.0f) box=(%.0f,%.0f %.0fx%.0f) "
+        "origin=(%.0f,%.0f) frame=(%.0f,%.0f) viewport=%sx%s -> screen=%s",
+        viewport_x, viewport_y, box["x"], box["y"], box["w"], box["h"],
+        origin["x"], origin["y"], origin["fx"], origin["fy"],
+        origin["w"], origin["h"], screen,
     )
     return screen
 
@@ -628,14 +599,7 @@ def still_on_target(sb, element, point: tuple[int, int]) -> bool:
 
 
 # Where this module last left the cursor. Anything else is somebody's hand.
-# Per thread for the same reason as the frame origin, though in practice
-# --real-input is refused with more than one worker: there is one cursor.
-def _get_expected_pos():
-    return getattr(_state, "expected_pos", None)
-
-
-def _set_expected_pos(value) -> None:
-    _state.expected_pos = value
+_expected_pos: tuple[int, int] | None = None
 
 # How far the cursor may sit from where we left it before we call it a person.
 # A few pixels of slack: some mice report sub-pixel drift when idle.
@@ -658,8 +622,7 @@ def yield_to_user(cfg, what: str = "") -> bool:
 
     Returns whether a person had in fact taken over.
     """
-    expected = _get_expected_pos()
-    if not AVAILABLE or expected is None:
+    if not AVAILABLE or _expected_pos is None:
         return False
 
     try:
@@ -668,8 +631,8 @@ def yield_to_user(cfg, what: str = "") -> bool:
         return False
 
     if (
-        abs(here[0] - expected[0]) <= _HAND_TOLERANCE
-        and abs(here[1] - expected[1]) <= _HAND_TOLERANCE
+        abs(here[0] - _expected_pos[0]) <= _HAND_TOLERANCE
+        and abs(here[1] - _expected_pos[1]) <= _HAND_TOLERANCE
     ):
         return False
 
@@ -709,6 +672,7 @@ def move_to(point: tuple[int, int], cfg) -> bool:
     # Never wrestle a person for the pointer.
     yield_to_user(cfg, "before moving")
 
+    global _expected_pos
     try:
         start = pyautogui.position()
         target_x, target_y = point
@@ -742,7 +706,7 @@ def move_to(point: tuple[int, int], cfg) -> bool:
             pyautogui.moveTo(target_x, target_y, duration=0, _pause=False)
 
         time.sleep(random.uniform(0.05, 0.16))
-        _set_expected_pos((int(target_x), int(target_y)))
+        _expected_pos = (int(target_x), int(target_y))
         return True
     except Exception as exc:
         LOG.debug("Real mouse move failed: %s", exc)
@@ -819,6 +783,7 @@ def idle_wander(cfg) -> None:
     if not AVAILABLE or random.random() > 0.3:
         return
 
+    global _expected_pos
     try:
         x, y = pyautogui.position()
         for _ in range(random.randint(2, 5)):
@@ -829,6 +794,6 @@ def idle_wander(cfg) -> None:
         # the pointer somewhere it did not put it and reports the run's own
         # wandering as a person's hand -- which is exactly what happened:
         # every action after a wander paused for a mouse nobody had touched.
-        _set_expected_pos((int(x), int(y)))
+        _expected_pos = (int(x), int(y))
     except Exception:
         pass

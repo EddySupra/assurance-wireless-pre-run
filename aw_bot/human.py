@@ -20,7 +20,6 @@ off (`--fast`) or when the fancy path fails, so pacing never costs reliability.
 
 import math
 import random
-import threading
 import time
 
 from selenium.common.exceptions import WebDriverException
@@ -28,7 +27,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 
-from . import cdp_input, real_input
+from . import real_input
 from .config import RunConfig
 from .errors import RealInputError
 from .logs import LOG
@@ -63,31 +62,17 @@ _NEIGHBOURS = {
 # distribution is identical, because it is. Real operators differ from each
 # other, and the same operator differs across a morning.
 #
-# Per thread, not per module. Each worker is filling in a different applicant
-# in a different browser, so they are different people and must not share a
-# pace: a module-level tempo makes five concurrent leads type at whatever
-# speed the last one to start happened to draw, which reinstates exactly the
-# single-signature problem this exists to remove -- and does it invisibly,
-# because nothing about the log would look wrong.
-#
 # Reset by new_operator() when a lead starts.
-_operator = threading.local()
-
-# What a thread types at before new_operator() has run in it.
-_DEFAULT_TEMPO = 1.0
-
-
-def _current_tempo() -> float:
-    """This worker's pace, or the default if it has not drawn one yet."""
-    return getattr(_operator, "tempo", _DEFAULT_TEMPO)
+_tempo = 1.0
 
 
 def new_operator() -> float:
-    """Pick a pace for this lead, in this thread. Returns it, for the log."""
+    """Pick a pace for this lead. Returns it, mostly for the log."""
+    global _tempo
     # Log-normal around 1.0: most leads near the middle, a few notably brisker
     # or more hesitant, and no hard edges at either end.
-    _operator.tempo = min(2.2, max(0.55, random.lognormvariate(0.0, 0.26)))
-    return _operator.tempo
+    _tempo = min(2.2, max(0.55, random.lognormvariate(0.0, 0.26)))
+    return _tempo
 
 
 def _skewed(low: float, high: float, scale: float = 1.0) -> float:
@@ -117,7 +102,7 @@ def _skewed(low: float, high: float, scale: float = 1.0) -> float:
             else min(value, high + spread * 1.5)
         )
 
-    return max(low * 0.7, value) * scale * _current_tempo()
+    return max(low * 0.7, value) * scale * _tempo
 
 
 def pause(cfg: RunConfig, scale: float = 1.0) -> None:
@@ -401,25 +386,6 @@ def human_click(sb, selector: str, cfg: RunConfig, timeout: int | None = None) -
     if _pressed_click(sb, selector, cfg):
         return
 
-    # Only when asked for, and only after the drift above has already put the
-    # pointer on the target -- so this adds the press duration to the approach
-    # that was always here rather than replacing it.
-    #
-    # An earlier version of this ran _pressed_click and the CDP click *before*
-    # _drift_to, on the reasoning that the CDP path draws its own approach.
-    # That silently removed the Bezier drift from every click ActionChains
-    # handles, which is all of steps 1 to 4 -- a change to the public pages
-    # nobody asked for, in a run that was also the first to see a Turnstile
-    # checkbox at step 9. The order below is the order that was working.
-    if cfg.cdp_input:
-        try:
-            element = sb.wait_for_element_visible(selector, timeout=timeout)
-            if cdp_input.click(sb, element, cfg):
-                LOG.info("Clicked %s with a browser-level press", selector)
-                return
-        except WebDriverException as exc:
-            LOG.debug("CDP click on %s could not run: %s", selector, exc)
-
     try:
         sb.click(selector, timeout=timeout)
     except WebDriverException:
@@ -560,7 +526,7 @@ def human_type(sb, selector: str, value: str, cfg: RunConfig) -> None:
     # So: pick a speed for this field and vary around it. The effect on any
     # single gap is small; the effect on the shape of the distribution is the
     # whole point.
-    tempo = random.uniform(0.82, 1.28) * _current_tempo()
+    tempo = random.uniform(0.82, 1.28) * _tempo
     for index, char in enumerate(text):
         try:
             # Occasionally hit the neighbouring key and correct it. Real

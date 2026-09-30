@@ -166,32 +166,18 @@ class _DisposableGoLoginLauncher:
             )
         self.cfg = cfg
         self.total_leads = max(1, total_leads)
-        self.workers = max(1, workers)
 
         # Say now, not on the third lead. Creating a profile is the first
         # thing each lead does, so an account already at its allowance fails
         # every one of them in turn -- three browsers each, no browser ever
         # opened, and the reason buried in a 403 several screens up.
-        #
-        # How many slots the run needs at once is the worker count, not one.
-        # Each worker holds its own profile for the length of its lead and
-        # deletes it afterwards, so N workers means N live profiles for the
-        # whole run -- and an account with room for one lead at a time will
-        # fail the other four immediately.
         held, leftovers = count_profiles(cfg.gologin.token)
         if leftovers:
             LOG.warning(
                 "This account holds %d profile(s), %d of them left over from "
-                "earlier runs (named aw-*). Clear them with:  "
-                "python run.py --cleanup-profiles",
+                "earlier runs (named aw-*). Each lead needs a free slot. "
+                "Clear them with:  python run.py --cleanup-profiles",
                 held, leftovers,
-            )
-        if self.workers > 1:
-            LOG.info(
-                "%d workers means %d profiles live at once, on top of the %d "
-                "this account already holds. If GoLogin starts answering 403 "
-                "'max profiles', that allowance is the ceiling on --workers.",
-                self.workers, self.workers, held,
             )
 
     def describe(self) -> str:

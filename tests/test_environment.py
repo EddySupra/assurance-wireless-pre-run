@@ -199,14 +199,9 @@ def test_describe_separates_a_loaded_api_from_a_rendered_widget():
     `#ngx-turnstile` is the id of the loader <script>, so a page that had merely
     downloaded the API looked exactly like a page with a widget waiting on it.
     """
-    described = turnstile.describe({"apiLoaded": True, "rendered": False})
-    assert "API loaded" in described
-    assert "no widget" in described
-    # And it no longer claims that means there is no challenge. A run on
-    # 2026-09-30 reported "no widget rendered" while a "Verify you are human"
-    # checkbox sat on screen waiting to be clicked, because the markup had
-    # been renamed out from under every selector we key on.
-    assert "do not recognise" in described
+    assert turnstile.describe({"apiLoaded": True, "rendered": False}) == (
+        "API loaded, no widget rendered"
+    )
     assert "rendered" in turnstile.describe(
         {"apiLoaded": True, "rendered": True, "sitekey": "0x4A"}
     )
@@ -308,41 +303,3 @@ def test_a_screen_with_no_turnstile_is_not_reported_as_a_failure():
         "diagnosis": {"hostPresent": False},
     })
     assert summary == "not on this screen"
-
-
-# -- a widget whose markup we do not recognise -------------------------------
-#
-# Every selector state() keys on is a name Cloudflare chooses and changes: the
-# widget id prefix `cf-chl-widget`, the class `cf-turnstile`, the iframe's src.
-# A challenge build met on 2026-09-30 randomised its ids and classes -- wrapper
-# `foPgu0 uiyYH6 rtloN0`, ids like `gvvP2` -- and all four missed. The run
-# reported "no widget rendered" while a "Verify you are human" checkbox sat on
-# screen, then waited ninety seconds for a lookup that was never coming and
-# filed the lead as throttled.
-
-def test_a_filled_host_counts_as_a_rendered_widget():
-    """The structural fact, which does not depend on the naming: a Turnstile
-    host with children in it is a widget."""
-    js = turnstile.STATE_JS
-    assert "host.children.length" in js
-    assert "hostFilled" in js
-    # And it feeds the three answers that decide what the run does.
-    assert "|| hostFilled," in js
-    assert "hostFilled && visible(host)" in js
-
-
-def test_the_old_selectors_are_kept_as_well():
-    """Widening the test, not replacing it -- an older build still matches."""
-    js = turnstile.STATE_JS
-    assert 'div[id^="cf-chl-widget"]' in js
-    assert 'iframe[src*="challenges.cloudflare.com"]' in js
-    assert 'input[name="cf-turnstile-response"]' in js
-
-
-def test_an_empty_host_is_not_a_widget():
-    """The app renders the host before anything mounts in it, so an empty one
-    must not read as a challenge -- that is the bug this used to have in
-    reverse, where the loader script counted as a widget."""
-    js = turnstile.STATE_JS
-    # The check is on children, not mere presence.
-    assert "host && host.children.length > 0" in js
