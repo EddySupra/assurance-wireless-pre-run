@@ -302,6 +302,23 @@ const holder = document.querySelector(
 const field = document.querySelector('input[name="cf-turnstile-response"]');
 const frame = document.querySelector('iframe[src*="challenges.cloudflare.com"]');
 
+/* The structural fact, which does not depend on Cloudflare's naming.
+   Everything above keys on names Cloudflare chooses and changes: the widget
+   id prefix `cf-chl-widget`, the class `cf-turnstile`, the iframe's src. A
+   newer challenge build randomises its ids and classes -- the markup a run
+   met on 2026-09-30 had a wrapper of `foPgu0 uiyYH6 rtloN0` and ids like
+   `gvvP2` -- and its iframe src did not carry the literal domain either. So
+   all four selectors missed, `rendered` came back false, and the run reported
+   "no widget rendered" while a "Verify you are human" checkbox sat on screen
+   waiting to be clicked. It then spent ninety seconds waiting for a lookup
+   that was never going to answer and filed the lead as throttled.
+
+   An emptied host is the app's own placeholder before anything mounts. A
+   host with children in it is a widget, whatever Cloudflare called the
+   children this week. */
+const host = document.querySelector('ngx-turnstile, .cf-turnstile');
+const hostFilled = !!(host && host.children.length > 0);
+
 /* The API's own answer, which is authoritative when the widget exists. */
 let apiToken = null;
 try {
@@ -321,11 +338,11 @@ return {
   observed: !!rec,
   /* The only honest definition of "there is a widget": the app rendered one,
      or one of its real DOM artefacts is on the page. */
-  rendered: !!(rec && rec.rendered) || !!holder || !!frame,
-  present: !!(rec && rec.rendered) || !!holder || !!frame || !!field,
+  rendered: !!(rec && rec.rendered) || !!holder || !!frame || hostFilled,
+  present: !!(rec && rec.rendered) || !!holder || !!frame || !!field || hostFilled,
   token: !!token,
   tokenLength: token ? String(token).length : 0,
-  widgetShowing: visible(frame) || visible(holder),
+  widgetShowing: visible(frame) || visible(holder) || (hostFilled && visible(host)),
   sitekey: rec ? rec.sitekey : null,
   options: rec ? rec.options : null,
   errorCode: rec ? rec.errorCode : null,
@@ -415,7 +432,10 @@ def describe(status: dict) -> str:
     if status.get("rendered"):
         return f"rendered (sitekey {status.get('sitekey') or '?'}), no token yet"
     if status.get("apiLoaded"):
-        return "API loaded, no widget rendered"
+        return (
+            "API loaded, no widget found -- note that this cannot distinguish "
+            "'no challenge' from 'a challenge whose markup we do not recognise'"
+        )
     # The distinction that matters on this form, and only when the component
     # is actually on the screen: it is sitting there waiting, and Cloudflare's
     # script never arrived to serve it. `observed` alone would say this on
