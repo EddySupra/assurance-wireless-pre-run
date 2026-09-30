@@ -152,3 +152,63 @@ def test_only_one_extra_press_is_made(monkeypatch):
         object(), RunConfig(), "Step 10", "button.order-button", BEFORE, 0.5, 0.0
     )
     assert len(clicks) == 1
+
+
+# -- the zero-risk discriminator ---------------------------------------------
+#
+# Chrome focuses a <button> as part of the default action of a real click. So
+# at a stall, with nothing clicked since and the screen unchanged, whether the
+# Continue button still holds focus says whether the click reached it -- and it
+# says so without pressing anything a second time.
+
+from aw_bot.page_utils import _FOCUS_AFTER_CLICK_JS, _log_click_landed  # noqa: E402
+
+
+def test_the_focus_script_compares_against_the_element_we_aimed_at():
+    assert "document.activeElement" in _FOCUS_AFTER_CLICK_JS
+    assert "querySelector(arguments[0])" in _FOCUS_AFTER_CLICK_JS
+    # A focused child of the button still counts as the button.
+    assert "want.contains(active)" in _FOCUS_AFTER_CLICK_JS
+
+
+class _Focus:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def execute_script(self, *a, **k):
+        return self.payload
+
+
+def test_focus_on_continue_is_reported_as_the_hosts_fault(caplog):
+    import logging
+
+    with caplog.at_level(logging.WARNING):
+        _log_click_landed(
+            _Focus({"found": True, "focused": True, "active": "button.order-button"}),
+            "Step 8", "button.order-button",
+        )
+    joined = " ".join(r.getMessage() for r in caplog.records)
+    assert "the host, not the click" in joined
+
+
+def test_focus_elsewhere_is_reported_as_ours(caplog):
+    import logging
+
+    with caplog.at_level(logging.WARNING):
+        _log_click_landed(
+            _Focus({"found": True, "focused": False, "active": "body"}),
+            "Step 8", "button.order-button",
+        )
+    joined = " ".join(r.getMessage() for r in caplog.records)
+    assert "This is ours" in joined
+    assert "body" in joined
+
+
+class _Broken:
+    def execute_script(self, *a, **k):
+        raise RuntimeError("frame gone")
+
+
+def test_a_failure_to_read_focus_is_not_fatal():
+    """A report about a failure must not replace the real error."""
+    _log_click_landed(_Broken(), "Step 8", "button.order-button")

@@ -1929,6 +1929,19 @@ def advance_screen(
     # capture could not say which control, if any, was empty.
     _log_required_state(sb, step_label)
 
+    # Did the click actually reach the button?
+    #
+    # Chrome focuses a <button> as part of the default action of a real click,
+    # so if the pointer event arrived, the button is still the active element
+    # -- nothing has been clicked since, and the screen has not changed. If
+    # something else holds focus, the click went elsewhere and the app never
+    # saw it.
+    #
+    # Read here rather than straight after the click on purpose: one
+    # evaluation at the end costs nothing, whereas anything during the window
+    # the backend is deciding is the traffic that step 9 was losing to.
+    _log_click_landed(sb, step_label, selector)
+
     # One more press of Continue, where the caller has said it is safe.
     #
     # Everything above has been ruled out by this point: no modal, no spinner,
@@ -2036,6 +2049,51 @@ def _press_continue_again(
         "and the host is not answering", step_label,
     )
     return None
+
+
+# Whether the element we aimed at still holds focus, and what does if not.
+_FOCUS_AFTER_CLICK_JS = r"""
+const want = document.querySelector(arguments[0]);
+const active = document.activeElement;
+const name = (n) => {
+  if (!n) return null;
+  const cls = (typeof n.className === 'string' && n.className.trim())
+      ? '.' + n.className.trim().split(/\s+/).join('.') : '';
+  return n.tagName.toLowerCase() + (n.id ? '#' + n.id : '') + cls;
+};
+return {
+  found: !!want,
+  focused: !!(want && active && (active === want || want.contains(active))),
+  active: name(active),
+  disabled: !!(want && want.disabled)
+};
+"""
+
+
+def _log_click_landed(sb, step_label: str, selector: str) -> None:
+    """Say whether the click reached the button. Never fatal."""
+    try:
+        state = sb.execute_script(_FOCUS_AFTER_CLICK_JS, selector) or {}
+    except Exception as exc:
+        LOG.debug("%s: could not read what holds focus: %s", step_label, exc)
+        return
+
+    if not state.get("found"):
+        LOG.warning("%s: the Continue button is no longer on the screen", step_label)
+        return
+
+    if state.get("focused"):
+        LOG.warning(
+            "%s: Continue still holds focus, so the click did reach it and the "
+            "app simply never answered. This is the host, not the click.",
+            step_label,
+        )
+    else:
+        LOG.warning(
+            "%s: Continue does not hold focus -- %s does. The click did not "
+            "reach the button, so the app never saw it. This is ours.",
+            step_label, state.get("active") or "nothing",
+        )
 
 
 # Every control the screen marks required, and what it holds right now.
