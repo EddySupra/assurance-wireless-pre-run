@@ -37,19 +37,11 @@ from .logs import LOG
 # Between two keystrokes it is milliseconds; between reading a question and
 # answering it, seconds. A run that uses a single range for both has a
 # recognisable rhythm regardless of how wide that range is.
-# How long a pause of each kind lasts, before _skewed() shapes it.
-#
-# Trimmed at the top end rather than the bottom. The distribution is what
-# matters -- a flat range is the tell, not a short one -- and the long tail was
-# where the time went: "long" runs before every submit, six to eight times a
-# lead, and a seven-second read of a screen the run has already filled in is
-# time nobody is spending. The bottom of each range is untouched, so the
-# variation is still there.
 DWELL = {
     "micro": (0.04, 0.32),    # within a field
-    "short": (0.12, 0.80),    # between fields
-    "medium": (0.40, 1.80),   # between sections
-    "long": (1.00, 3.50),     # reading a screen before answering it
+    "short": (0.12, 1.10),    # between fields
+    "medium": (0.40, 3.00),   # between sections
+    "long": (1.00, 7.00),     # reading a screen before answering it
 }
 
 # Neighbours on a QWERTY keyboard. A typo that a real hand makes is the key

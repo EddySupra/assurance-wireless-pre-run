@@ -319,15 +319,7 @@ class RunConfig:
 
     # Generous because GoLogin profiles go out through a residential proxy:
     # measured start-page loads run ~40s to interactive on these profiles.
-    # How long to wait for an element or a URL before giving up.
-    #
-    # Halved: this is pure loss whenever it fires. A page that has not
-    # rendered #firstName in 45s is not going to at 90 -- measured on a lead
-    # that burned the full ninety and then failed anyway -- and every retry
-    # on the public pages paid it twice over. It never shortens a wait the
-    # form is genuinely working through: that is what max_busy_wait and the
-    # settle windows cover, and neither is touched.
-    page_timeout: int = 45
+    page_timeout: int = 90
 
     # How long to keep waiting while the form is visibly busy -- the submit
     # button disabled with a spinner in it.
@@ -431,28 +423,15 @@ class RunConfig:
     # only way to see why it fell back to synthetic input.
     verbose: bool = False
 
-    # Per-character typing speed. Left alone: this is the one delay that is
-    # measured directly rather than inferred, and 0.05-0.16s is already brisk
-    # touch-typing. Faster is not a human hand.
     type_delay: tuple[float, float] = (0.05, 0.16)     # seconds per character
-    # Between actions. Trimmed: this is dead air between a field being filled
-    # and the pointer starting for the next one, and nothing scores it.
-    action_pause: tuple[float, float] = (0.25, 0.7)    # between actions
-    # Points sampled per pointer move. Trimmed a little: the shape of the
-    # path is what a classifier reads, and a Bezier is still a Bezier at 9
-    # samples. Below about 6 it starts to read as straight segments.
-    mouse_steps: int = 9                               # points sampled per pointer move
+    action_pause: tuple[float, float] = (0.4, 1.1)     # between actions
+    mouse_steps: int = 12                              # points sampled per pointer move
 
     # Move the mouse around each page before touching its fields. The sensor
     # scores the first seconds of a page, and a session whose first pointer
     # event is the click on field one has nothing to score but that. Range in
     # seconds; (0, 0) turns it off.
-    # Halved rather than removed. The stated reason for this still holds --
-    # the sensor scores the first seconds of a page and a session whose first
-    # pointer event is the click on field one has nothing else to show it --
-    # but a second and a half of movement establishes that as well as four
-    # seconds does, and this runs on every page of every lead.
-    warm_up_seconds: tuple[float, float] = (1.2, 2.6)
+    warm_up_seconds: tuple[float, float] = (2.5, 5.0)
 
     # How often a typed letter comes out as its keyboard neighbour and gets
     # backspaced. Real form-filling has corrections in it. Low on purpose:
@@ -638,11 +617,7 @@ class RunConfig:
     # Idle between leads. Spacing a batch out is what keeps a long run from
     # looking like a flood; it is not there to defeat the host's limits, it is
     # there to stay under them.
-    # Trimmed, not removed. Still spacing the batch out rather than flooding,
-    # but 15-40s between leads was costing about half a minute per lead on a
-    # single worker for no measured benefit. Raise it again if the host starts
-    # answering differently.
-    lead_delay: tuple[float, float] = (7.0, 16.0)
+    lead_delay: tuple[float, float] = (15.0, 40.0)
 
     sheet: SheetConfig = field(default_factory=SheetConfig)
     application: ApplicationConfig = field(default_factory=ApplicationConfig)
