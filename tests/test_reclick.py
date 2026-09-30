@@ -212,3 +212,86 @@ class _Broken:
 def test_a_failure_to_read_focus_is_not_fatal():
     """A report about a failure must not replace the real error."""
     _log_click_landed(_Broken(), "Step 8", "button.order-button")
+
+
+# -- re-aiming when focus proves the click missed -----------------------------
+#
+# Evidence-gated, unlike the second press: focus says the app never saw the
+# first click, so there is nothing to submit twice. Row 251 stalled at step 6
+# with every control valid and `body#rootBody` holding focus -- the pointer
+# event never arrived, and the run then waited out ninety seconds for a
+# submission that was never made.
+
+from aw_bot.page_utils import _click_landed, _nothing_happened_yet  # noqa: E402
+
+
+class _Page:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def execute_script(self, *a, **k):
+        return self.payload
+
+
+def test_a_focused_button_counts_as_landed():
+    assert _click_landed(_Page({"found": True, "focused": True}), "button") is True
+
+
+def test_an_unfocused_button_counts_as_missed():
+    assert _click_landed(_Page({"found": True, "focused": False}), "button") is False
+
+
+def test_an_unreadable_page_is_not_treated_as_a_miss():
+    """An unanswerable question is not evidence. Clicking again on no evidence
+    is the thing this design exists to avoid."""
+    assert _click_landed(_Broken(), "button") is True
+
+
+def test_a_vanished_button_is_not_treated_as_a_miss():
+    """It has gone because the screen moved on -- that is a landed click."""
+    assert _click_landed(_Page({"found": False}), "button") is True
+
+
+def test_nothing_happened_is_false_while_busy(monkeypatch):
+    """A spinner means the click landed and the app is working."""
+    monkeypatch.setattr(page_utils, "is_busy", lambda sb: True)
+    assert _nothing_happened_yet(object(), BEFORE) is False
+
+
+def test_nothing_happened_is_false_with_a_modal_open(monkeypatch):
+    monkeypatch.setattr(page_utils, "is_busy", lambda sb: False)
+    monkeypatch.setattr(page_utils, "modal_present", lambda sb: True)
+    assert _nothing_happened_yet(object(), BEFORE) is False
+
+
+def test_nothing_happened_is_false_once_the_headings_change(monkeypatch):
+    monkeypatch.setattr(page_utils, "is_busy", lambda sb: False)
+    monkeypatch.setattr(page_utils, "modal_present", lambda sb: False)
+    monkeypatch.setattr(page_utils, "screen_headings", lambda sb: AFTER)
+    assert _nothing_happened_yet(object(), BEFORE) is False
+
+
+def test_nothing_happened_is_true_on_an_unchanged_idle_screen(monkeypatch):
+    monkeypatch.setattr(page_utils, "is_busy", lambda sb: False)
+    monkeypatch.setattr(page_utils, "modal_present", lambda sb: False)
+    monkeypatch.setattr(page_utils, "screen_headings", lambda sb: BEFORE)
+    assert _nothing_happened_yet(object(), BEFORE) is True
+
+
+def test_an_unreadable_screen_blocks_the_re_aim(monkeypatch):
+    """Both conditions must be positively true before anything is clicked."""
+    def boom(sb):
+        raise RuntimeError("frame gone")
+
+    monkeypatch.setattr(page_utils, "is_busy", boom)
+    assert _nothing_happened_yet(object(), BEFORE) is False
+
+
+def test_the_focus_check_runs_after_the_silent_window_not_before():
+    """Step 9 only started passing once nothing talked to the page while the
+    backend decided. This check must not creep back into that gap."""
+    source = Path("aw_bot/page_utils.py").read_text(encoding="utf-8")
+    body = source.split("def advance_screen(")[1].split("\ndef ")[0]
+    hands_off = body.index("hands off for %.0fs while the form works")
+    check = body.index("_nothing_happened_yet(sb, before)")
+    assert check > hands_off, "the focus check must come after the silent wait"

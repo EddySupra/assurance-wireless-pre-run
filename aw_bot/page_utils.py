@@ -1627,6 +1627,40 @@ def advance_screen(
         )
         time.sleep(settle)
 
+    # Did the click reach the button at all?
+    #
+    # Checked here, once the silent window is over, and never before it: the
+    # whole reason step 9 started passing is that nothing talks to the page
+    # while the backend decides, and this must not creep back into that gap.
+    #
+    # Chrome focuses a <button> as part of the default action of a real click.
+    # Measured on row 251 at step 6: the screen had not moved, every control
+    # was valid, and `body#rootBody` held focus -- the pointer event never
+    # arrived, so the app had nothing to answer and the run then waited out
+    # ninety seconds for a submission that was never made.
+    #
+    # Re-aiming is safe precisely because focus says the app never saw the
+    # first click, so there is nothing to submit twice. That is what separates
+    # this from pressing Continue again hopefully: the evidence comes first.
+    # Guarded by "nothing has happened yet" as well, so a click that landed
+    # and moved focus onward is never clicked a second time.
+    if _nothing_happened_yet(sb, before) and not _click_landed(sb, selector):
+        LOG.warning(
+            "%s: the click never reached Continue, so the app saw nothing. "
+            "Re-aiming and clicking once more.", step_label,
+        )
+        try:
+            bring_framed_element_into_view(sb, selector, cfg)
+            human_click(sb, selector, cfg)
+        except Exception as exc:
+            LOG.warning("%s: could not re-aim at Continue: %s", step_label, exc)
+        else:
+            if settle > 0:
+                LOG.info(
+                    "%s: hands off for %.0fs after re-aiming", step_label, settle
+                )
+                time.sleep(settle)
+
     budget = timeout or cfg.page_timeout
     deadline = time.time() + budget
     # An absolute stop, so "still spinning" cannot wait forever.
@@ -2068,6 +2102,40 @@ return {
   disabled: !!(want && want.disabled)
 };
 """
+
+
+def _click_landed(sb, selector: str) -> bool:
+    """Does the clicked element still hold focus?
+
+    True when it does, and also when the question cannot be answered -- an
+    unreadable page is not evidence that a click missed, and treating it as
+    such would click a second time on no evidence at all.
+    """
+    try:
+        state = sb.execute_script(_FOCUS_AFTER_CLICK_JS, selector) or {}
+    except Exception:
+        return True
+    if not state.get("found"):
+        return True
+    return bool(state.get("focused"))
+
+
+def _nothing_happened_yet(sb, before: list[str]) -> bool:
+    """Is the screen exactly as it was, with nothing in flight?
+
+    The guard on re-aiming. A click that landed and then moved focus onward --
+    to a spinner, a modal, or the next screen -- must never be read as a click
+    that missed.
+    """
+    try:
+        if is_busy(sb):
+            return False
+        if modal_present(sb):
+            return False
+        after = screen_headings(sb)
+        return not after or after == before
+    except Exception:
+        return False
 
 
 def _log_click_landed(sb, step_label: str, selector: str) -> None:
