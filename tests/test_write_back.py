@@ -1,17 +1,3 @@
-"""Tests for writing each lead's verdict back to the sheet.
-
-Column L, beside the lead it belongs to, so the classification lives where
-whoever works the leads will look for it rather than only in the run's
-results.csv.
-
-Two things matter more than the write itself: that a lead which was never
-classified leaves the cell alone -- a browser dying is not a decision about an
-applicant -- and that a sheet which cannot be written never takes down a run,
-because the verdicts of every lead still to come depend on it carrying on.
-
-    python -m pytest tests -q
-"""
-
 import sys
 from pathlib import Path
 
@@ -25,8 +11,6 @@ from aw_bot.lead import Lead  # noqa: E402
 
 
 class _Sheet:
-    """Records the cells written to it."""
-
     def __init__(self, fail=None):
         self.written = []
         self.fail = fail
@@ -50,8 +34,6 @@ def _patch(monkeypatch, sheet):
     sheets.reset_write_cache()
 
 
-# -- where it goes -----------------------------------------------------------
-
 def test_the_verdict_goes_in_column_l_beside_its_row(monkeypatch):
     sheet = _Sheet()
     _patch(monkeypatch, sheet)
@@ -61,7 +43,6 @@ def test_the_verdict_goes_in_column_l_beside_its_row(monkeypatch):
 
 
 def test_the_column_is_configurable(monkeypatch):
-    """So moving it is a config change, not a code change."""
     sheet = _Sheet()
     _patch(monkeypatch, sheet)
 
@@ -76,11 +57,7 @@ def test_column_l_is_the_default():
     assert SheetConfig().write_verdicts is True
 
 
-# -- what is deliberately not written ----------------------------------------
-
 def test_a_lead_with_no_verdict_leaves_the_cell_alone(monkeypatch):
-    """A browser dying is not a decision about an applicant, and writing
-    anything for it would dress a run problem up as a classification."""
     sheet = _Sheet()
     _patch(monkeypatch, sheet)
 
@@ -90,7 +67,6 @@ def test_a_lead_with_no_verdict_leaves_the_cell_alone(monkeypatch):
 
 
 def test_a_lead_with_no_row_number_is_not_written(monkeypatch):
-    """Nowhere to put it, and guessing a row would overwrite someone else."""
     sheet = _Sheet()
     _patch(monkeypatch, sheet)
 
@@ -108,11 +84,7 @@ def test_the_write_back_can_be_switched_off(monkeypatch):
     assert not sheet.written
 
 
-# -- a sheet that cannot be written must not stop the run --------------------
-
 def test_an_api_error_is_a_warning_not_a_failure(monkeypatch):
-    """The verdict is already in results.csv and the log. Every lead still to
-    come depends on the run carrying on."""
     response = type(
         "R", (),
         {"json": lambda self: {"error": {"code": 429, "message": "quota exceeded",
@@ -127,8 +99,6 @@ def test_any_other_failure_is_also_survivable(monkeypatch):
     _patch(monkeypatch, _Sheet(fail=RuntimeError("network gone")))
     assert sheets.write_verdict(SheetConfig(), 207, "good") is False
 
-
-# -- the runner calls it once per classified lead ----------------------------
 
 def test_recording_a_verdict_writes_it(monkeypatch):
     calls = []
@@ -148,12 +118,10 @@ def test_recording_a_failure_writes_nothing(monkeypatch):
     state.record(_lead(208), "failed", "Step 2: URL never reached /apply-now", "")
 
     assert not calls
-    # But it is still recorded locally, so the row is not silently forgotten.
     assert state.rows[0]["sheet_row"] == 208
 
 
 def test_no_sheet_config_means_no_write(monkeypatch):
-    """What the rest of the suite relies on to stay offline."""
     calls = []
     monkeypatch.setattr(runner, "write_verdict", lambda *a: calls.append(a))
 
@@ -163,11 +131,8 @@ def test_no_sheet_config_means_no_write(monkeypatch):
 
 
 def test_the_write_happens_outside_the_batch_lock():
-    """A network call under the lock would stop every other worker recording
-    while one of them talks to Google."""
     source = Path("aw_bot/runner.py").read_text(encoding="utf-8")
     body = source.split("def record(")[1].split("\ndef ")[0]
-    lock_block_end = body.index("        # Put the verdict back")
+    lock_block_end = body.index("\n        if verdict and self.sheet_cfg is not None:")
     assert "with self.lock:" in body[:lock_block_end]
-    # The call sits at method indentation, not inside the `with`.
     assert "\n        if verdict and self.sheet_cfg is not None:" in body

@@ -1,55 +1,7 @@
-"""Cloudflare Turnstile on the enrollment form: watching it rather than guessing.
-
-The enrollment app loads Turnstile with `render=explicit`, which means the
-widget does not exist until the app calls `turnstile.render()` itself -- and it
-only does that once Continue on the eligible-applicant screen is pressed. So
-for most of the run there is nothing to look at, and for the part that matters
-there is very little: no visible checkbox, no `.cf-turnstile` container, no
-`cf-turnstile-response` input anywhere in the frame. Every dump this project
-has taken from that screen shows the same thing.
-
-That is the whole reason this module exists. The previous approach read the DOM
-and inferred the widget's state from it, and it was wrong in both directions:
-
-  * `#ngx-turnstile` is the id of the *loader script tag*, not a widget. It
-    matched on every screen from the moment the app injected the script, so
-    "a Turnstile widget is present" was true whenever the API had merely been
-    downloaded. The run then spent its time waiting for a token from a widget
-    that had never been rendered.
-
-  * Because the token was read from `[name="cf-turnstile-response"]`, which
-    this app never creates, "no token" was true permanently -- including at the
-    moments when Turnstile had in fact handed the app a perfectly good one
-    through its callback. `_retry_turnstile` then called `turnstile.reset()`
-    against that supposedly tokenless widget, which is the one operation
-    guaranteed to throw away a token that had already arrived.
-
-The fix is to stop inferring. Turnstile tells you exactly what it is doing --
-it just tells the page, not the DOM. `install()` wraps `turnstile.render` before
-the app can call it and tees every callback into `window.__awTurnstile`, so the
-run can read the sitekey it was rendered with, the token it issued, and above
-all the error code it failed with.
-
-That error code is the point. Turnstile's failures are six digits beginning
-`600***` ("the challenge could not be completed"), and this form reports its own
-failure as `Unable to continue ... (600)`. A run that captures the full code
-turns that into something nameable instead of the recurring mystery it has been.
-"""
-
 import time
 
 from .logs import LOG
 
-# Installed at document-start so it is in place before the app's own bundle
-# runs. Two paths matter and both are covered: the API script may not have
-# loaded yet (so `turnstile` does not exist and we wait for it via the
-# documented `onloadTurnstileCallback`/property hook), or it may already be
-# there (a re-injection, or a frame we attached to late).
-#
-# Everything is defensive. This runs on every document in the browser,
-# including Cloudflare's own frames and the analytics iframes this site is
-# full of, and a throw in here would break pages that have nothing to do with
-# the form.
 OBSERVER_JS = r"""
 (function () {
     'use strict';
@@ -282,14 +234,6 @@ OBSERVER_JS = r"""
 """
 
 
-# Reads the observer's record and corroborates it against the DOM. The DOM half
-# is deliberately secondary: it is there to notice a *visible* challenge, which
-# is the one thing the callbacks cannot tell us, and to pick up a token in the
-# ordinary hidden input for the sites that use one.
-#
-# Note what is NOT in these selectors: `#ngx-turnstile`. That is the loader
-# script's id, and matching it is what made every screen look like it had a
-# widget on it.
 STATE_JS = r"""
 const rec = window.__awTurnstile || null;
 
@@ -337,19 +281,11 @@ return {
 
 
 def _source(cfg=None) -> str:
-    """The observer, with tracing compiled in or out."""
     trace = bool(getattr(cfg, "trace_turnstile", False)) if cfg else False
     return OBSERVER_JS.replace("__AW_TRACE__", "true" if trace else "false")
 
 
 def install(sb, cfg=None) -> bool:
-    """Put the observer on every document this browser opens from now on.
-
-    Called once per session, before the first navigation, so it is in place
-    when the enrollment frame eventually injects the API script. Returns
-    whether it took -- a driver without CDP cannot do this, and that is worth
-    knowing rather than discovering later as silence.
-    """
     driver = getattr(sb, "driver", sb)
     if not hasattr(driver, "execute_cdp_cmd"):
         LOG.debug("No CDP on this driver; Turnstile will be read from the DOM only")
@@ -373,13 +309,6 @@ def install(sb, cfg=None) -> bool:
 
 
 def install_now(sb, cfg=None) -> bool:
-    """Install into the document that is already loaded.
-
-    `install()` only affects documents created after it runs, so a frame that
-    was navigated before the session got set up -- or one reached through
-    --frame-direct -- would otherwise never be observed. Running the same
-    script directly is idempotent: it checks its own marker first.
-    """
     try:
         sb.execute_script(_source(cfg))
         return True
@@ -389,13 +318,6 @@ def install_now(sb, cfg=None) -> bool:
 
 
 def state(sb) -> dict:
-    """What Turnstile is actually doing on this screen.
-
-    An empty dict means the question could not be asked (frame swapped out
-    mid-read, page navigating). Callers treat that as "no information", never
-    as "no widget" -- the difference matters, because acting on a failed read
-    is how the old code talked itself into resetting a healthy widget.
-    """
     try:
         return sb.execute_script(STATE_JS) or {}
     except Exception:
@@ -403,7 +325,6 @@ def state(sb) -> dict:
 
 
 def describe(status: dict) -> str:
-    """A one-line summary for the log, in the order a reader cares about."""
     if not status:
         return "unreadable"
     if status.get("token"):
@@ -416,19 +337,11 @@ def describe(status: dict) -> str:
         return f"rendered (sitekey {status.get('sitekey') or '?'}), no token yet"
     if status.get("apiLoaded"):
         return "API loaded, no widget rendered"
-    # The distinction that matters on this form, and only when the component
-    # is actually on the screen: it is sitting there waiting, and Cloudflare's
-    # script never arrived to serve it. `observed` alone would say this on
-    # every screen, since the watcher installs on all of them.
     if (status.get("diagnosis") or {}).get("hostPresent"):
         return "the component is waiting and Cloudflare's script never loaded"
     return "not on this screen"
 
 
-# Cloudflare's documented error codes, kept short and in the words that
-# actually help. The `600***` family is the one this form's "(600)" lines up
-# with, and it is worth saying plainly what it means rather than printing a
-# number nobody can act on.
 ERROR_MEANINGS = {
     "100": "the sitekey or its domain does not match this page",
     "102": "the sitekey is invalid for this hostname",
@@ -452,11 +365,9 @@ ERROR_MEANINGS = {
 
 
 def explain_error(code) -> str:
-    """Turn a Turnstile error code into something worth reading."""
     if not code:
         return ""
     text = str(code)
-    # The codes are prefix-coded: 600010 and 600011 are both `600` failures.
     for width in (3, 2):
         meaning = ERROR_MEANINGS.get(text[:width])
         if meaning:
@@ -464,17 +375,6 @@ def explain_error(code) -> str:
     return f"Cloudflare Turnstile error {text}"
 
 
-# Why the widget is empty, when it is empty.
-#
-# `<ngx-turnstile>` renders nothing until `window.turnstile` exists: the
-# component sets `window.onloadTurnstileCallback`, injects Cloudflare's script
-# with `?onload=onloadTurnstileCallback`, and waits to be called back. If that
-# script never executes, the callback never fires, the host element stays empty
-# forever, and the Continue button it gates spins for as long as you let it.
-#
-# That is not a guess about this form -- it is what the dumps show: an empty
-# `<ngx-turnstile>`, a disabled Continue with a spinner in it, and an observer
-# record saying `window.turnstile` was never assigned.
 _DIAGNOSE_JS = r"""
 const tag = document.querySelector('script[src*="challenges.cloudflare.com/turnstile"]');
 const host = document.querySelector('ngx-turnstile, .cf-turnstile');
@@ -520,8 +420,6 @@ return {
 """
 
 
-# Ask the network whether Cloudflare is reachable at all from in here. `no-cors`
-# because we only care that bytes came back, not what they say.
 _PROBE_JS = r"""
 window.__awTurnstileProbe = 'pending';
 try {
@@ -539,13 +437,6 @@ return true;
 """
 
 
-# Load the script the component was waiting for.
-#
-# Deliberately the same URL the app used, so it carries the same
-# `onload=onloadTurnstileCallback` parameter -- the point is to make the app's
-# own callback fire and let its own component render the widget and feed the
-# token into its own form. Rendering a widget ourselves would produce a token
-# the form has no way to receive.
 _RELOAD_JS = r"""
 if (window.turnstile) { return 'already-loaded'; }
 var existing = document.querySelector('script[src*="challenges.cloudflare.com/turnstile"]');
@@ -569,16 +460,12 @@ try {
 
 
 def diagnose(sb) -> dict:
-    """Why there is no widget. Safe to call at any time."""
     try:
         return sb.execute_script(_DIAGNOSE_JS) or {}
     except Exception:
         return {}
 
 
-# Console text that names a specific cause, and what it means in one line.
-# Matched rather than parsed: these come from three different codebases and
-# the wording is not ours to rely on beyond the distinctive part.
 _ERROR_MEANINGS = (
     (
         "notsameoriginafterdefaultedtosameoriginbycoep",
@@ -611,7 +498,6 @@ _ERROR_MEANINGS = (
 
 
 def _report_page_errors(sb, step_label: str, status: dict | None = None) -> None:
-    """Print the page's own errors, and translate the ones that name a cause."""
     status = status if status is not None else diagnose(sb)
     errors = status.get("pageErrors") or []
     if not errors:
@@ -630,38 +516,10 @@ def _report_page_errors(sb, step_label: str, status: dict | None = None) -> None
 
 
 def ensure_api_loaded(sb, step_label: str, timeout: float = 20.0) -> bool:
-    """Say why there is no Turnstile API, and repair it only where that is safe.
-
-    Returns whether `window.turnstile` exists afterwards.
-
-    Re-requesting the script is *not* the default, and that is a measured
-    decision rather than caution. Turnstile refuses to register twice --
-
-        [Cloudflare Turnstile] Turnstile already has been loaded.
-        Was Turnstile imported multiple times?
-
-    -- and the second copy still fires `onloadTurnstileCallback`, so the app's
-    own component runs its render path against a `window.turnstile` that is
-    still undefined:
-
-        Uncaught TypeError: Cannot read properties of undefined
-        (reading 'render')   at main-*.js
-
-    Both were observed on this form after a reload was attempted. The reload
-    turned "no widget" into "no widget and a thrown exception inside the app",
-    which is strictly worse and can leave the component in a state it does not
-    recover from. So a second copy is only injected when the first one left no
-    trace at all, which is the one case where the duplicate guard cannot fire.
-    """
     status = diagnose(sb)
     if status.get("apiLoaded"):
         return True
 
-    # Ask whether the network can even reach Cloudflare, so the report below
-    # can tell a blocked request from a refused initialisation.
-    # Wait for the probe to actually answer. One second was not enough through
-    # a residential proxy, and a report of "reachability=pending" says nothing
-    # about the thing it was asked to settle.
     try:
         sb.execute_script(_PROBE_JS)
         deadline = time.time() + 12.0
@@ -676,10 +534,6 @@ def ensure_api_loaded(sb, step_label: str, timeout: float = 20.0) -> bool:
     probe = status.get("probe") or "not answered"
 
     if status.get("scriptTag"):
-        # The app's own script tag is in the page and `window.turnstile` is
-        # still undefined. Whatever stopped it, injecting a second copy is the
-        # one thing guaranteed not to help: Turnstile's own duplicate guard
-        # answers it, and the app's callback then throws.
         LOG.error(
             "%s: the app's Turnstile script tag is in the page and "
             "window.turnstile was never defined (reachability=%s). The script "
@@ -716,9 +570,6 @@ def ensure_api_loaded(sb, step_label: str, timeout: float = 20.0) -> bool:
         _report_page_errors(sb, step_label, status)
         return False
 
-    # No script tag at all: the component never got as far as asking, so
-    # there is nothing to duplicate and a request of our own is a genuine
-    # repair rather than a second copy.
     LOG.warning(
         "%s: no Turnstile script was ever requested by the page. Requesting "
         "it so the form's own component can render its widget.", step_label,
@@ -753,20 +604,6 @@ def ensure_api_loaded(sb, step_label: str, timeout: float = 20.0) -> bool:
 
 
 def reset(sb, step_label: str, status: dict | None = None) -> bool:
-    """Ask a rendered widget to have another go. Returns whether it was asked.
-
-    Refuses in the two cases where a reset does harm rather than good:
-
-      * a token is already held -- resetting discards it, and the app is very
-        likely in the middle of submitting with it
-      * nothing has been rendered -- there is no widget to reset, and calling
-        `turnstile.reset()` blind either throws or, worse, resets somebody
-        else's widget on a page that has several
-
-    The old version did neither check, which is why it could log "asked
-    Turnstile to retry" at the exact moment the form was submitting a token
-    it had just been given.
-    """
     status = status if status is not None else state(sb)
 
     if status.get("token"):
@@ -805,13 +642,6 @@ def reset(sb, step_label: str, status: dict | None = None) -> bool:
 
 
 def wait_for_token(sb, timeout: float, step_label: str, on_idle=None) -> dict:
-    """Wait for a rendered widget to issue a token. Returns the final state.
-
-    Only meaningful once something has been rendered; the caller decides that.
-    `on_idle` runs between polls so the caller can keep the session looking
-    alive while Cloudflare is scoring it -- which is exactly the window where
-    holding perfectly still is the wrong thing to do.
-    """
     deadline = time.time() + timeout
     while time.time() < deadline:
         status = state(sb)

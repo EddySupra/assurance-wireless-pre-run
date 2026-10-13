@@ -1,0 +1,178 @@
+:root {
+  --page-header-bgColor: #d7d7d7 !important;
+}
+
+html, body {
+  height: 100%;  
+}
+
+.AaBxc,
+.qaOIC,
+.dYxKVs,
+.eVjWum,
+.cvduTM,
+.kcZxBG,
+.jwXCBK,
+.d-table,
+.dheQRw,
+.btn-mktg,
+.topic-tag,
+.btn-primary,
+.lh-condensed,
+.state, .State,
+.btn-primary-mktg,
+.flex-self-stretch,
+.jumbotron-codelines,
+.subnav-item.selected,
+.promo-banner-bg:after,
+.promo-banner-bg:before,
+.MarketplaceAnnouncement,
+.subnav-item[aria-selected='true'],
+.bDmUQT .segmentedControl-content,
+.css-truncate.css-truncate-target,
+.css-truncate .css-truncate-target,
+.feature-card-mktg .color-fg-muted,
+.subnav-item[aria-current]:not([aria-current='false']) {
+  filter: invert(100%) !important;
+  -webkit-filter: invert(100%) !important;
+}
+
+.home-campaign-signup-button {
+  filter: invert(0) !important;
+  -webkit-filter: invert(0) !important;
+}
+
+.h1-mktg {
+  color: dimgrey !important;
+}
+
+.HeaderMenu-link {
+  color: #565656 !important;
+}
+
+table.files td.icon svg {
+  fill: #dedede !important;
+}
+
+main .btn-link {
+  color: #d6d6d6 !important;
+}
+
+footer .text-gray-dark {
+  color: #b5b5b5 !important;
+}
+
+footer,
+main .bg-gray-dark,
+main .bg-gray-light {
+  background-color: #e0e0e0 !important;
+}
+
+.footer,
+.gh-header,
+.commit-ref,
+.Header-old,
+.CircleBadge,
+.application-main,
+.pulse-authors-graph,
+.tabnav-pr .tabnav-tab {
+  background-color: #e0e0e0 !important;
+}
+
+.tabnav-pr .tabnav-tab.selected {
+  border-color: #b5b5b5 !important;
+}
+
+.home-campaign-hero .eyebrow-banner {
+  background: #ffffff !important;
+}
+
+.footer .color-bg-subtle,
+.application-main .color-bg-subtle,
+.application-main .color-bg-default {
+  background-color: #e9e9e9 !important;
+}
+
+[data-color-mode] {
+  background-color: white !important;
+}
+
+.container-xl .box-shadow-active-border-inverse-mktg {
+  box-shadow: unset !important;
+}
+
+.feature-card-mktg em {
+  color: black !important;
+}
+
+.container-xl .flex-items-stretch .d-flex {
+  background: unset !important;
+}
+
+.copilot-marker,
+.box-shadow-mktg-xl,
+.sub-nav-mktg-shadow,
+.sub-nav-mktg.is-stuck {
+  box-shadow: unset !important;
+  background: #b5b5b5 !important;
+}
+
+.Box-row .Link--primary {
+  color: #878787 !important;
+}
+
+.h0-mktg.mb-3.position-relative.z-2 span {
+  color: #777777 !important;
+}
+
+.global-banner.d-block.position-relative.lh-condensed.fgColor-onEmphasis {
+  background-color: #1e1e1e !important;
+}
+
+.HeaderMenu .HeaderMenu-link {
+  color: #838383 !important;
+}
+
+.application-main .sub-nav-mktg .btn-mktg {
+  background: #000000 !important;
+}
+
+.container-xl .build-in-animate .link-mktg,
+.container-xl .feature-card-mktg .link-mktg {
+  color: #6b6b6b !important;
+}
+
+.container-xl .build-in-animate p,
+.container-xl .build-in-animate h2,
+.container-xl .build-in-animate h3 {
+  color: #979797 !important;
+}
+
+.experimental-video .color-fg-default,
+.experimental-video .Box-btn-octicon.btn-octicon {
+  color: #000000 !important;
+}
+
+a {
+  color: #ff7800 !important;
+}
+
+.iRQGXA,
+.bgColor-muted,
+.color-bg-subtle {
+  background-color: #e7e7e7 !important;
+}
+
+.search-with-dialog {
+  background-color: #ffffff !important;
+}
+
+.AppHeader-appearanceSettings .HeaderMenu-link svg {
+  fill: #000000 !important;
+}
+
+.topic-tag,
+.topic-tag-action,
+.delete-topic-button {
+  background-color: #1d343f !important;
+}

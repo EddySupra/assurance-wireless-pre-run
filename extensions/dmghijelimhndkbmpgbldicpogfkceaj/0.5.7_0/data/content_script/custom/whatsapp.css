@@ -1,0 +1,35 @@
+a[target='_blank'],
+div[data-asset-intro-image],
+div[data-asset-intro-image-light] {
+  filter: invert(100%) !important;
+  -webkit-filter: invert(100%) !important;
+}
+
+._amil,
+._31gEB,
+._1evad,
+.xwc7gll,
+.x1t8hrig,
+.x18ba5f9,
+.x125lrph,
+._ak7n ._ak8i,
+._amji[role='img'],
+.app-wrapper-web::after {
+  filter: invert(100%) !important;
+  -webkit-filter: invert(100%) !important;
+}
+
+section div[role='dialog'] div[role='listitem'] button {
+  width: -webkit-fill-available;
+  height: -webkit-fill-available;
+  filter: invert(0) !important;
+  -webkit-filter: invert(0) !important;
+}
+
+div[data-ref*='linked_devices'] {
+  background-color: #d5d5d5 !important;
+}
+
+#wa_web_initial_startup ._apds {
+  color: #777777 !important;
+}

@@ -1,0 +1,79 @@
+/* temporarily-dark-start */
+
+html[temporarily-dark-start] {
+  color-scheme: dark !important;
+  background-color: #292929 !important;
+}
+
+html[temporarily-dark-start] * {
+  background-color: #292929 !important;
+}
+
+/* temporarily-dark-brightness */
+
+html[temporarily-dark-brightness] {
+  height: 100vh !important;
+  color-scheme: dark !important;
+  filter: brightness(0.25) !important;
+}
+
+/* temporarily-dark-display */
+
+html[temporarily-dark-display] {
+  filter: none !important;
+  height: 100vh !important;
+  transition: none !important;
+  color-scheme: dark !important;
+  background-color: #292929 !important;
+}
+
+html[temporarily-dark-display] * {
+  display: none !important;
+}
+
+/* temporarily-dark-simple */
+
+html[temporarily-dark-simple] {
+  filter: none !important;
+  height: 100vh !important;
+  transition: none !important;
+  color-scheme: dark !important;
+  background-color: #292929 !important;
+}
+
+html[temporarily-dark-simple] * {
+  color: #eeeeee !important;
+  border-color: #555555 !important;
+  background-color: #292929 !important;
+}
+
+html[temporarily-dark-simple] video,
+html[temporarily-dark-simple] input, 
+html[temporarily-dark-simple] textarea {
+  border-color: transparent !important;
+  background-color: transparent !important;
+}
+
+/* color-temperature */
+
+html[color-temperature] .colortemperature-overlay {
+  border: 0 !important;
+  top: -10% !important;
+  margin: 0 !important;
+  opacity: 1 !important;
+  padding: 0 !important;
+  right: -10% !important;
+  width: 120% !important;
+  height: 120% !important;
+  outline: none !important;
+  display: block !important;
+  position: fixed !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  z-index: 2147483647 !important;
+  pointer-events: none !important;
+  transition: opacity 0.1s !important;
+  mix-blend-mode: multiply !important;
+  background: rgba(var(--colortemperature-red) , var(--colortemperature-green), var(--colortemperature-blue),  var(--colortemperature-opacity)) !important;
+}

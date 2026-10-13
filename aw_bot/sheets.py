@@ -1,10 +1,3 @@
-"""Reads leads from the Google Sheet via a gspread service account, and
-writes each lead's verdict back beside it.
-
-Uses get_all_values() rather than get_all_records() on purpose: column F has
-no header, and get_all_records raises on blank/duplicate header cells.
-"""
-
 import csv
 import threading
 from pathlib import Path
@@ -18,15 +11,10 @@ from .logs import LOG
 
 
 class SheetError(AwBotError):
-    """Could not open or read the sheet."""
+    pass
 
 
 def load_leads(cfg: SheetConfig, only_row: int | None = None) -> list[Lead]:
-    """Return every valid lead in the sheet, or just one if only_row is given.
-
-    Rows that fail validation are logged and skipped so one bad row doesn't
-    stop the batch.
-    """
     rows = _fetch_values(cfg)
 
     if len(rows) < cfg.header_row:
@@ -45,23 +33,10 @@ def load_leads(cfg: SheetConfig, only_row: int | None = None) -> list[Lead]:
         if only_row is not None and row_number != only_row:
             continue
         if not any(str(cell).strip() for cell in row):
-            continue  # blank spacer row
+            continue
 
         raw = {field: _cell(row, index) for field, index in columns.items()}
 
-        # A row carrying nothing in any field we read is not a malformed
-        # lead, it is not a lead at all -- so it is skipped the same way a
-        # wholly blank row is, rather than counted and shouted about.
-        #
-        # The check above only catches rows where every single cell is empty,
-        # and this sheet has tens of thousands of trailing rows that hold
-        # something harmless outside the mapped columns: a leftover formula,
-        # a stray space, a checkbox. Each of those produced an ERROR line
-        # reading "missing required field(s)" followed by every field name,
-        # which buried the real data problems (two truncated emails, a
-        # handful of genuinely incomplete rows) under ~50_000 lines of noise
-        # and left a --next run grinding for minutes before it opened a
-        # browser. Measured on this sheet.
         if not any(str(raw.get(field) or "").strip() for field in columns if field not in OPTIONAL):
             continue
 
@@ -118,7 +93,6 @@ def _fetch_values(cfg: SheetConfig) -> list[list[str]]:
 
 
 def _map_columns(headers: list[str]) -> dict[str, int]:
-    """Field name -> column index, by header text, falling back to position."""
     seen = {normalize_header(h): i for i, h in enumerate(headers) if str(h).strip()}
     columns: dict[str, int] = {}
 
@@ -127,8 +101,6 @@ def _map_columns(headers: list[str]) -> dict[str, int]:
 
         if index is None:
             index = _letter_index(COLUMN_FALLBACK[field])
-            # Column F legitimately has no header, so only make noise about
-            # the fields we actually expect to be labeled.
             if field not in OPTIONAL:
                 LOG.warning(
                     "No header matched %r; falling back to column %s",
@@ -140,17 +112,11 @@ def _map_columns(headers: list[str]) -> dict[str, int]:
     return columns
 
 
-# The worksheet used for writing verdicts back, and a lock around it.
-#
-# Cached because opening the spreadsheet costs two API calls and the verdict is
-# written once per lead; locked because one gspread client is shared by every
-# worker and nothing about it promises to be thread-safe.
 _write_lock = threading.Lock()
 _write_sheet = None
 
 
 def _verdict_worksheet(cfg: SheetConfig):
-    """The worksheet to write into, opened once and kept."""
     global _write_sheet
     if _write_sheet is not None:
         return _write_sheet
@@ -168,20 +134,12 @@ def _verdict_worksheet(cfg: SheetConfig):
 
 
 def reset_write_cache() -> None:
-    """Forget the cached worksheet. For tests, and for a changed config."""
     global _write_sheet
     with _write_lock:
         _write_sheet = None
 
 
 def write_verdict(cfg: SheetConfig, row_number: int, verdict: str) -> bool:
-    """Write `verdict` beside the lead's row. True if it landed.
-
-    Never raises. The classification is already saved in the run's results.csv
-    and printed in the log, so a sheet that cannot be written is worth a
-    warning and nothing more -- it must not take down a run, or lose the
-    verdicts of the leads still to come.
-    """
     if not cfg.write_verdicts:
         return False
     if not row_number or not (verdict or "").strip():
@@ -218,14 +176,6 @@ def _cell(row: list[str], index: int) -> str:
 
 
 def completed_rows(results_csv: Path) -> set[int]:
-    """Sheet rows a previous run finished, read from its results.csv.
-
-    Resuming by row number alone is unsafe once workers > 1: leads finish out
-    of order, so rows after the throttled one may already be submitted.
-    Skipping the rows recorded as "ok" is what prevents a duplicate
-    application. Rows that failed are NOT skipped -- they never went through,
-    so they are fair game on a retry.
-    """
     if not results_csv.exists():
         raise SheetError(f"No results file at {results_csv}")
 

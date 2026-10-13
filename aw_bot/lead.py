@@ -1,13 +1,3 @@
-"""One customer's data, cleaned up and validated before it touches the site.
-
-Sheet columns (A-K), matched by header name rather than position so a
-reordered or inserted column doesn't silently shift everything:
-
-    A First Name   B Last Name   C Date of Birth   D Last 4 SSN
-    E Street Address   F (blank -- apt/unit)   G City   H State
-    I ZIP Code   J Email   K PNUM (phone)
-"""
-
 import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -15,8 +5,6 @@ from datetime import date, datetime
 from .errors import LeadDataError
 from .logs import LOG
 
-# Accepted header spellings per field, normalized to lowercase alphanumerics.
-# The first tuple entry is not special; any match wins.
 FIELD_ALIASES: dict[str, tuple[str, ...]] = {
     "first_name": ("firstname", "first", "fname"),
     "last_name": ("lastname", "last", "lname"),
@@ -34,7 +22,6 @@ FIELD_ALIASES: dict[str, tuple[str, ...]] = {
     ),
 }
 
-# Column letters as a fallback when a header is blank or unrecognized.
 COLUMN_FALLBACK: dict[str, str] = {
     "first_name": "A",
     "last_name": "B",
@@ -73,7 +60,6 @@ STATE_NAMES = {
 }
 
 
-# "CA" -> "california", for matching the state page slug the site redirects to.
 STATE_ABBREV_TO_NAME = {abbrev: name for name, abbrev in STATE_NAMES.items()}
 
 
@@ -85,7 +71,7 @@ def normalize_header(header: str) -> str:
 class Lead:
     first_name: str
     last_name: str
-    dob: str  # normalized to MM/DD/YYYY
+    dob: str
     ssn_last4: str
     street: str
     city: str
@@ -93,7 +79,7 @@ class Lead:
     zip_code: str
     email: str
     unit: str = ""
-    phone: str = ""  # 10 digits, or blank -- the form treats it as optional
+    phone: str = ""
     row_number: int | None = None
     warnings: list[str] = field(default_factory=list)
 
@@ -103,9 +89,6 @@ class Lead:
         return f"{where} ({self.first_name} {self.last_name})"
 
     def for_log(self) -> dict:
-        """Log-safe view. The SSN digits never go to the log file, which is
-        written to disk in the project folder.
-        """
         return {
             "row": self.row_number,
             "name": f"{self.first_name} {self.last_name}",
@@ -119,7 +102,6 @@ class Lead:
 
     @classmethod
     def from_mapping(cls, raw: dict[str, object], row_number: int | None = None) -> "Lead":
-        """Build a Lead from one sheet row, already keyed by field name."""
         warnings: list[str] = []
 
         missing = [f for f in REQUIRED if not str(raw.get(f, "") or "").strip()]
@@ -150,7 +132,6 @@ class Lead:
 
 
 def sample_lead() -> Lead:
-    """The fake row we use to exercise the flow without touching the sheet."""
     return Lead.from_mapping(
         {
             "first_name": "EVELIA",
@@ -163,8 +144,6 @@ def sample_lead() -> Lead:
             "state": "CA",
             "zip_code": "91767",
             "email": "eveliasfe@gmail.com",
-            # 555-01xx is the reserved fictional range, so testing can never
-            # put a real person's number on an application.
             "phone": "(909) 555-0123",
         },
         row_number=0,
@@ -184,10 +163,7 @@ def _parse_zip(value: object, row: int | None) -> str:
     if not digits:
         raise LeadDataError(f"Row {row}: ZIP code {value!r} has no digits")
 
-    # ZIP+4 -> take the 5-digit base.
     zip_code = digits[:5]
-    # Sheets stores a numeric cell without its leading zero, so 01234 arrives
-    # as 1234. Pad it back rather than sending a 4-digit ZIP.
     if len(zip_code) < 5:
         zip_code = zip_code.zfill(5)
     return zip_code
@@ -198,26 +174,16 @@ def _parse_ssn_last4(value: object, row: int | None) -> str:
     if not digits:
         raise LeadDataError(f"Row {row}: Last 4 SSN {value!r} has no digits")
 
-    # If someone pasted a full SSN, keep only the last 4. Same leading-zero
-    # problem as ZIP, so pad short values.
     if len(digits) > 4:
         digits = digits[-4:]
     return digits.zfill(4)
 
 
 def _parse_phone(value: object, warnings: list[str]) -> str:
-    """Normalize to the bare 10 digits the form's `xxxxxxxxxx` field wants.
-
-    The form treats phone as optional, so a malformed number is downgraded to
-    blank with a warning rather than failing the whole row -- a wrong callback
-    number on the application is worse than none, and losing the lead over an
-    optional field is worse still. The warning names the row in the log.
-    """
     digits = _digits(value)
     if not digits:
         return ""
 
-    # Strip a leading country code: 1-909-555-0123 -> 9095550123.
     if len(digits) == 11 and digits.startswith("1"):
         digits = digits[1:]
 
@@ -250,7 +216,6 @@ def _parse_email(value: object, row: int | None) -> str:
 
 
 def _parse_dob(value: object, row: int | None, warnings: list[str]) -> str:
-    # gspread can hand back a real date when the cell is date-formatted.
     if isinstance(value, datetime):
         parsed = value.date()
     elif isinstance(value, date):

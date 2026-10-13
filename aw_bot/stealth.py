@@ -1,53 +1,9 @@
-"""Making the browser look like a browser somebody is sitting at.
-
-Two different problems get confused with each other, and this module keeps
-them apart because the right answer to one is the wrong answer to the other.
-
-    automation artefacts   Things a driven Chrome has that a hand-driven one
-                           does not: navigator.webdriver set, the $cdc_ globals
-                           ChromeDriver injects, document.hasFocus() returning
-                           false because nobody is looking at the window. None
-                           of these say anything about the machine. They are
-                           pure tells, and scrubbing them is safe everywhere.
-
-    device identity        The GPU string, core count, timezone, canvas hash,
-                           user agent. These say which machine this is. They
-                           are not tells in themselves -- every real browser
-                           has them -- they are only a problem when they
-                           contradict each other.
-
-The artefact tier always runs. The identity tier is conditional, and that is
-the important part: GoLogin profiles already ship a complete, internally
-consistent identity (GPU, cores, screen, timezone, UA and proxy all chosen to
-match each other). Layering a second set of values over the top of that does
-not make the profile look more human, it makes it look *broken* -- a browser
-claiming an Intel Iris on a profile whose UA, proxy geolocation and screen
-metrics were built around something else. A contradiction is a far louder
-signal than a plain fingerprint, so on GoLogin the identity tier stays off and
-the profile speaks for itself. It runs on the SeleniumBase backends, where
-nothing else is supplying an identity at all.
-
-`cfg.stealth_fingerprint` overrides that choice ("auto" / "on" / "off") for
-when you want to see what the other way looks like.
-
-Everything is injected through Page.addScriptToEvaluateOnNewDocument, so it
-lands in every frame -- including the Solix iframe the application actually
-lives in -- before any of the page's own script runs. A page that is already
-open is too late; call this right after the browser starts.
-"""
-
 from .config import RunConfig
 from .logs import LOG
 
-# Chrome's magic getParameter() constants for the debug renderer extension.
-# 37445 = UNMASKED_VENDOR_WEBGL, 37446 = UNMASKED_RENDERER_WEBGL.
 _GPU_VENDOR = "Intel Inc."
 _GPU_RENDERER = "Intel(R) Iris(TM) Plus Graphics 640"
 
-
-# --------------------------------------------------------------------------
-# Tier 1: automation artefacts. Safe on every backend.
-# --------------------------------------------------------------------------
 
 ARTIFACT_JS = r"""
 (function () {
@@ -260,10 +216,6 @@ ARTIFACT_JS = r"""
 })();
 """
 
-
-# --------------------------------------------------------------------------
-# Tier 2: device identity. Only where nothing else is supplying one.
-# --------------------------------------------------------------------------
 
 FINGERPRINT_JS = r"""
 (function () {
@@ -580,21 +532,12 @@ FINGERPRINT_JS = r"""
 
 
 def apply(sb, cfg: RunConfig, backend: str = "") -> None:
-    """Install the stealth layer on a freshly started browser.
-
-    Call before the first navigation: the scripts run on new documents, so
-    anything already loaded has had its chance to look.
-    """
     if not getattr(cfg, "stealth", True):
         LOG.info("Stealth layer off (cfg.stealth)")
         return
 
     driver = getattr(sb, "driver", sb)
     if not hasattr(driver, "execute_cdp_cmd"):
-        # A remote grid speaks plain WebDriver and offers no CDP endpoint, so
-        # there is nowhere to install this. Worth saying out loud rather than
-        # failing quietly, since it is exactly the backend that has no other
-        # anti-detection either.
         LOG.warning(
             "Stealth needs a CDP connection and this driver has none (remote "
             "grid?). The browser goes to the site unpatched."
@@ -634,28 +577,6 @@ def apply(sb, cfg: RunConfig, backend: str = "") -> None:
 
 
 def wants_artifacts(cfg: RunConfig, backend: str = "") -> bool:
-    """Whether the artefact patches are worth applying to this browser.
-
-    Off for GoLogin, and that is a measured decision rather than a cautious
-    one. Orbita is a real browser that GoLogin starts normally; we attach to
-    its DevTools port instead of launching it with --enable-automation, so
-    nothing sets the usual tells in the first place. Probed side by side on
-    fresh profiles, patched against unpatched:
-
-        navigator.webdriver     undefined   vs  false      <- false is correct
-        document.hasFocus desc  present     vs  absent     <- present is the tell
-        permissions.query desc  present     vs  absent     <- same
-        $cdc_ globals           0           vs  0
-        navigator.plugins       5           vs  5
-
-    Everything the patches were there to fix was already right, and each
-    patch added something a page can check for. On a browser that is clean,
-    anti-detection is net negative: the only thing left to detect is the
-    anti-detection.
-
-    Still on for the SeleniumBase backends, where Chrome *is* launched under
-    automation and those tells are real.
-    """
     mode = (getattr(cfg, "stealth_artifacts", "auto") or "auto").lower()
     if mode == "on":
         return True
@@ -665,14 +586,11 @@ def wants_artifacts(cfg: RunConfig, backend: str = "") -> bool:
 
 
 def wants_fingerprint(cfg: RunConfig, backend: str = "") -> bool:
-    """Whether to impose an identity, or let the profile supply its own."""
     mode = (getattr(cfg, "stealth_fingerprint", "auto") or "auto").lower()
     if mode == "on":
         return True
     if mode == "off":
         return False
-    # auto: GoLogin brings a complete, self-consistent fingerprint of its own
-    # and a second one layered over it only creates contradictions.
     return (backend or cfg.browser_backend or "").lower() != "gologin"
 
 
@@ -686,12 +604,6 @@ def _inject(driver, script: str, label: str) -> bool:
 
 
 def _user_agent(driver) -> tuple[str, str, str]:
-    """A UA string built from the Chrome that actually launched.
-
-    Inventing a version here is how the UA ends up claiming one Chrome while
-    the binary behaves like another -- a mismatch anything checking the two
-    together will spot.
-    """
     caps = getattr(driver, "capabilities", {}) or {}
     raw = (caps.get("browserVersion") or caps.get("version") or "").strip()
     full = raw or "131.0.0.0"
@@ -705,13 +617,6 @@ def _user_agent(driver) -> tuple[str, str, str]:
 
 
 def _cdp_identity(driver, ua: str, major: str, full: str) -> None:
-    """The half of the identity that only CDP can set.
-
-    Timezone and locale go through CDP rather than JS because Intl and
-    Date read them from the renderer, below anything a page script can patch --
-    and a browser whose UA says Windows/en-US while Date reports a different
-    zone is a browser with something to hide.
-    """
     overrides = (
         ("Network.setUserAgentOverride", {
             "userAgent": ua,
@@ -742,6 +647,4 @@ def _cdp_identity(driver, ua: str, major: str, full: str) -> None:
         try:
             driver.execute_cdp_cmd(command, params)
         except Exception as exc:
-            # Emulation.* comes and goes between Chrome versions; the JS tier
-            # already covers most of what these set, so a miss is survivable.
             LOG.debug("CDP %s not accepted: %s", command, exc)

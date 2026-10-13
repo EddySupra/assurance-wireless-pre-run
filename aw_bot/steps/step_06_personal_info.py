@@ -1,20 +1,3 @@
-"""Step 6 -- fill the PERSONAL INFO screen (wizard screen 1 of 5).
-
-Per-field notes worth keeping:
-
-* Middle Initial is deliberately left blank -- it isn't in the sheet and the
-  form treats it as optional.
-* Phone is optional too. A row with a malformed number arrives here blank
-  (lead parsing warns and drops it) rather than putting a wrong callback
-  number on the application.
-* Email arrives prefilled from the frame URL, so it's verified rather than
-  retyped.
-* Date of birth is three dependent dropdowns: the day list is empty until a
-  month and year are chosen, so the order month -> year -> day is required.
-  Option values are matched numerically, which sidesteps dobMonth using
-  zero-padded values ("07") while dobYear uses plain ones ("1957").
-"""
-
 import time
 from pathlib import Path
 
@@ -38,9 +21,6 @@ DOB_MONTH = "#dobMonth"
 DOB_DAY = "#dobDay"
 DOB_YEAR = "#dobYear"
 
-# :not(.float-end) matters -- a modal's Dismiss button is also
-# `button.order-button`, so the bare class can click the wrong thing once an
-# error dialog is open.
 CONTINUE_SELECTORS = (
     "button.order-button:not(.float-end)",
     'button:contains("Continue")',
@@ -49,7 +29,6 @@ CONTINUE_SELECTORS = (
 def fill_personal_info(
     sb, cfg: RunConfig, lead: Lead, run_dir: Path, *, submit: bool = True
 ) -> dict:
-    """Fill screen 1 and advance. With submit=False, stop before Continue."""
     LOG.info("Step 6: filling PERSONAL INFO for %s", lead.label)
 
     enter_enrollment_frame(sb, cfg, "Step 6")
@@ -81,9 +60,6 @@ def fill_personal_info(
 
 
 def _type(sb, selector: str, value: str, label: str, cfg: RunConfig, secret: bool = False) -> None:
-    """Type a value and read it back, so a field that silently rejected the
-    input fails here instead of several screens later.
-    """
     shown = "****" if secret else value
 
     human_type(sb, selector, value, cfg)
@@ -98,7 +74,6 @@ def _type(sb, selector: str, value: str, label: str, cfg: RunConfig, secret: boo
 
 
 def _verify_email(sb, lead: Lead, cfg: RunConfig) -> None:
-    """The frame URL prefills this. Retype only if it's wrong or missing."""
     sb.wait_for_element_visible(EMAIL, timeout=cfg.page_timeout)
     current = (sb.get_attribute(EMAIL, "value") or "").strip().lower()
 
@@ -111,24 +86,16 @@ def _verify_email(sb, lead: Lead, cfg: RunConfig) -> None:
 
 
 def _select_dob(sb, lead: Lead, cfg: RunConfig) -> None:
-    """Set the three DOB dropdowns in the order the form requires."""
     month, day, year = lead.dob.split("/")
 
     _select_numeric(sb, DOB_MONTH, int(month), "DOB month", cfg)
     _select_numeric(sb, DOB_YEAR, int(year), "DOB year", cfg)
 
-    # The day list is populated from the chosen month/year, so it only exists
-    # now. February 29 is exactly why year has to be set before day.
     _wait_for_day_options(sb, cfg)
     _select_numeric(sb, DOB_DAY, int(day), "DOB day", cfg)
 
 
 def _select_numeric(sb, selector: str, number: int, label: str, cfg: RunConfig) -> None:
-    """Pick the option whose value (or failing that, its text) equals `number`.
-
-    Matching on the number rather than an exact string keeps this working
-    whether the site uses "07", "7", or "July (7)".
-    """
     element_id = selector.lstrip("#")
     options = sb.execute_script(
         "const el = document.getElementById(arguments[0]);"

@@ -1,0 +1,62 @@
+img,
+.logo,
+.search2,
+.path__item,
+.pager__item,
+.thumb__image,
+.favicon__icon,
+.headline__logo,
+.worldwide__icon,
+.tabs__item-image,
+.services-suggest,
+.Thumb-Image:empty,
+.organic__url-text,
+.serp-footer__main,
+.gdpr-popup-v3-main,
+.button2_theme_action,
+.VideoSnippetThumb-Play,
+.promo-popup__social-icon,
+.serp-footer__main .thumb,
+.HeaderDesktopLogo_lang_en,
+.Scroller-Arrow_direction_left,
+.Scroller-Arrow_direction_right,
+.Theme_color_yandex-default .HeaderDesktopLink_type_login,
+.Container:has(form[action*='/checkcaptcha']) a[href*='www.yandex.com'],
+.Distribution-Popup_layout_simple.Distribution-Popup_motley_yellow.Distribution-Popup {
+  filter: invert(100%) !important;
+  -webkit-filter: invert(100%) !important;
+}
+
+.Path-Item,
+.Organic-Url,
+.link_theme_minor,
+.link_theme_normal {
+  color: #c1c1c1 !important
+}
+
+.Link_theme_normal {
+  color: #6b6bbd !important;
+}
+.Link_theme_outer {
+  color: #038f03 !important;
+}
+
+.serp-item_card {
+  background-color: #e9e9e9 !important;
+}
+
+body:not(.i-ua_skin_dark) .ArrowButton::before {
+  box-shadow: unset !important;
+}
+
+.Container:has(form[action*='/checkcaptcha']) {
+  background-color: #a5a5a5;
+}
+
+.Container:has(form[action*='/checkcaptcha']) .AdvancedCaptcha {
+  background-color: #5a5a5a;
+}
+
+.Container:has(form[action*='/checkcaptcha']) .Link_view_default {
+  color: #bb7000;
+}

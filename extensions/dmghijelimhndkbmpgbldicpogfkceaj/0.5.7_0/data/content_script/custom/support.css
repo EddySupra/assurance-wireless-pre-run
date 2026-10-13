@@ -1,0 +1,55 @@
+a[href*='./'],
+a[href*='?tab='],
+a[href*='&tab='] {
+  filter: invert(100%) !important;
+  -webkit-filter: invert(100%) !important;
+}
+
+.NQV3m,
+.gb_Md,
+.MrEfLc,
+.footer-links a,
+.gb_je:not(.gb_3),
+.navigation-menu a,
+.info-bar-container,
+.language-selector .sc-select,
+.hcfe .promoted-search__container,
+.portal .additional-resources > li a,
+.promoted-search-greeting__logo-container {
+  filter: invert(100%) !important;
+  -webkit-filter: invert(100%) !important;
+}
+
+#gb#gb a.gb_A {
+  filter: invert(100%) !important;
+  -webkit-filter: invert(100%) !important;
+}
+
+.portal .show-all-button svg,
+.navigation-drawer__menu-icon,
+.user-feedback-link__svg-container {
+  filter: invert(0) !important;
+  -webkit-filter: invert(0) !important;
+}
+
+.portal .list-of-hcs li h3,
+.portal .product-selector li h3 {
+  color: #7d7d7d !important;
+}
+
+.gb_Te {
+  background: #979797 !important;
+}
+
+.appbar-helpcenter-sections__link.appbar-helpcenter-sections--active {
+  color: #bb8100 !important;
+  border-bottom: 0.1875rem solid #a9a000 !important;
+}
+
+.navigation-menu li:hover {
+  background: #232323 !important;
+}
+
+.lS67ae {
+  fill: #fff !important;
+}

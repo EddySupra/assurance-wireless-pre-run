@@ -1,30 +1,3 @@
-"""Step 10 -- read the screen the wizard stopped on and classify the lead.
-
-It exists to answer the question the whole run is for: is this lead a sale, a
-document request, or someone who already has the benefit elsewhere.
-
-It presses Continue on the screens that state no decision -- currently the
-account review, which reads the applicant's own details back at them. Those
-are pages between verdicts rather than verdicts, and classifying one would
-record an outcome the site never gave. Everything else it only reads.
-
-Worth being explicit about what that Continue does on the review screen: it
-consents to Assurance Wireless pre-populating a California LifeLine
-application with the details collected so far. That is a step beyond gathering
-Assurance Wireless's own information, and it is clicked because this run is
-meant to reach the eligibility decision, which sits behind it.
-
-It is also how the rest of the wizard gets mapped. Whatever screen the step
-before it lands on, this records the headings, fields and buttons into the run's
-artifacts, so a screen that is not yet recognised comes back as `unknown` with
-everything needed to add it to `classify.py` -- rather than a guessed verdict.
-
-The wizard's own rail is PERSONAL INFO -> ELIGIBILITY -> PHONE OPTIONS ->
-DISCLOSURES -> SUBMIT PROOF, so there are screens still to map between the
-address screen and the one that states a decision. Each run that ends `unknown`
-here is what tells us the next one to implement.
-"""
-
 import json
 from pathlib import Path
 
@@ -43,14 +16,6 @@ from ..page_utils import (
 
 STEP_NAME = "step_10_classify"
 
-# Screens that state no decision and exist only to be acknowledged.
-#
-# The account review is the first of these: it reads the applicant's own
-# details back at them and offers Continue. Classifying it would be wrong --
-# it is not a verdict, it is a page between two verdicts -- so the run presses
-# Continue and carries on to whatever does state one.
-#
-# Matched on headings, lowercased.
 PASS_THROUGH_SCREENS = (
     ("review your assurance wireless account information", "account review"),
 )
@@ -60,28 +25,13 @@ CONTINUE_SELECTORS = (
     'button:contains("Continue")',
 )
 
-# How many screens to work through before giving up. Five are known between
-# step 9 and the verdict -- account review, qualifying programme, phone
-# choice, e-signature consent, one-per-household -- so this allows a little
-# room beyond them and no more. A wizard that keeps handing back pages is one
-# this step does not understand, and pressing Continue indefinitely on a
-# benefits application is not a thing to do on a guess.
 MAX_PASS_THROUGH = 8
 
-# Seconds to sit still after each pass-through Continue, for the same reason
-# step 9 does it: the screens behind this point wait on a backend, and the
-# driver polling at them is what stopped that backend answering.
 SETTLE_AFTER_CONTINUE = 15.0
 
 
-# The California LifeLine qualification screen, which asks which government
-# programme the applicant is enrolled in. Not a decision the site is stating --
-# a question it is asking -- so the run answers it and continues.
 QUALIFY_HEADING = "how do you qualify for california lifeline"
 
-# The options are checkboxes hidden behind painted labels, the same pattern as
-# the radios on the earlier screens: clicking the input itself lands on
-# whatever is drawn over it, so the label is what has to be clicked.
 _FIND_PROGRAM_JS = r"""
 const wanted = (arguments[0] || '').toLowerCase().trim();
 const boxes = Array.from(
@@ -135,11 +85,9 @@ return box ? box.checked : null;
 
 
 def _pass_through(headings: list[str]) -> str:
-    """The name of the acknowledge-and-continue screen, or "" if this is not one."""
     joined = " | ".join(headings or []).lower()
     return next((name for signal, name in PASS_THROUGH_SCREENS if signal in joined), "")
 
-# Headings, the step rail, and any panel the wizard uses to announce a decision.
 _SCREEN_JS = """
 const pick = (sel, limit) => Array.from(document.querySelectorAll(sel))
     .map(e => (e.innerText || '').trim()).filter(Boolean).slice(0, limit);
@@ -152,59 +100,17 @@ return {
 """
 
 
-# The two screens between the qualifying programme and the decision. Matched
-# on their own distinctive wording rather than headings, because both put the
-# text that identifies them in the body.
 ESIGN_SIGNAL = "e-signature consent"
 HOUSEHOLD_SIGNAL = "do you live with another adult"
 
-# The three household questions, in the order they appear, paired with the
-# config field that answers each. The hints are matched against the question's
-# own text so a reworded question still finds its answer.
 HOUSEHOLD_QUESTIONS = (
     ("live with another adult", "household_lives_with_adult"),
     ("receive a california lifeline discount", "household_adult_has_lifeline"),
     ("share income and living expenses", "household_shares_expenses"),
 )
 
-# "Attestations", the screen between the e-signature consent and the verdict.
-#
-# Two required controls, and they are built differently from each other and
-# from everything else on this site:
-#
-#   <label for="e911yes" class="btn btn-secondary">
-#     <input type="radio" id="e911yes" name="e911" required> Yes </label>
-#
-# a Bootstrap button-group toggle, where the label *is* the button and its
-# centre is the right place to click -- unlike the paragraph-sized labels
-# elsewhere, which is why those needed the painted div instead. And:
-#
-#   <label for="sigCheck" class="b-contain">
-#     <span></span>
-#     <input type="checkbox" name="signatureCheckbox" id="sigCheck" required>
-#     <div class="b-input"></div></label>
-#
-# which is the familiar painted-checkbox pattern.
 ATTESTATIONS_HEADING = "attestations"
 _E911_LABEL = 'label[for="e911{answer}"]'
-# Two honest targets for the same control, label first.
-#
-# The painted box is what is drawn on screen and is the right target on the
-# programme and certification rows, whose labels are paragraphs. Here it is
-# not: measured on row 225, a click aimed at it was 36x36 px at 1386,684 in
-# a 1889x1021 viewport, on screen, and elementFromPoint confirmed the click
-# landed on div.b-input itself -- and the input stayed `ng-pristine`. So the
-# aim was never the problem; the painted div simply ignores the click, and
-# it does so only sometimes, which is why this took three leads to see.
-#
-# The label owns the checkbox through `for=` and is the native way to
-# activate it. Unlike the programme rows this label contains only the box,
-# so its centre is the box. It landed on the same lead the painted div had
-# just refused, and the run reached a verdict.
-#
-# The painted box stays as the fallback rather than being deleted: it has
-# worked on most leads, and two ways in are better than one for a control
-# the screen will not continue without.
 _SIGNATURE_CHECKBOX = (
     'label[for="sigCheck"]',
     'input[id="sigCheck"] + div.b-input',
@@ -224,27 +130,9 @@ return {
 """
 
 
-# How long to let a painted control catch up, and how many times to try it.
-#
-# These boxes are Angular-bound and the click lands on a div drawn over the
-# input, so the model updates a moment after the pointer does. Reading the
-# state once after a fixed pause caught that gap: the service terms box came
-# back unticked on a lead where the identical click had worked twice before.
-# Bounded at two attempts because a second click on a box that did register
-# would clear it again.
-#
-# Counted in polls rather than wall-clock seconds so that the delay comes
-# entirely from `pause` -- which is what carries the run's pacing, and what
-# the tests stub out.
 _SETTLE_POLLS = 12
 
 
-# What a click aimed at this selector would actually land on.
-#
-# Logged when a control will not set, because the two causes want opposite
-# answers and the symptom is identical: a click that misses the element, and
-# a click that hits it and is ignored. The first shows a different element
-# under the point; the second shows the element itself.
 _HIT_TEST_JS = """
 const el = document.querySelector(arguments[0]);
 if (!el) return {found: false};
@@ -271,18 +159,6 @@ return {
 
 
 def _click_and_confirm(sb, cfg: RunConfig, selectors, reads: str, holds, what: str) -> bool:
-    """Click each of `selectors` in turn until the page agrees one took.
-
-    `holds` is given the state `reads` returns and says whether the control
-    is now set. More than one selector because a control can have two honest
-    click targets -- the painted box and the label that owns it -- and on the
-    Attestations screen the painted box alone does not always activate it:
-    row 224 was clicked twice on it and the input stayed `ng-pristine`, which
-    is Angular saying it never saw the interaction at all.
-
-    Bounded by the number of targets rather than by retries, because a second
-    click on a box that *did* register would clear it again.
-    """
     if isinstance(selectors, str):
         selectors = (selectors,)
 
@@ -314,14 +190,6 @@ def _is_attestations_screen(headings: list[str]) -> bool:
 
 
 def _answer_attestations(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
-    """Acknowledge the Wi-Fi 911 limitation and the service terms.
-
-    Both controls are marked required and the screen will not continue
-    without them. Each is read back after the click, because a painted
-    control that swallows one leaves the screen refusing to move with no
-    validation message -- the same silent stall the signature fields
-    produced.
-    """
     app = cfg.application
 
     capture(sb, run_dir, f"{STEP_NAME}_attestations_as_found", save=cfg.save_artifacts)
@@ -380,26 +248,13 @@ def _answer_attestations(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
             return False
 
     capture(sb, run_dir, f"{STEP_NAME}_attestations", save=cfg.save_artifacts)
-    advance_screen(sb, cfg, "Step 10", CONTINUE_SELECTORS, settle=SETTLE_AFTER_CONTINUE)
+    advance_screen(
+        sb, cfg, "Step 10", CONTINUE_SELECTORS,
+        settle=SETTLE_AFTER_CONTINUE, first_look=cfg.step10_first_look,
+    )
     return True
 
 
-# Find one household question by its own wording and report the Yes/No
-# controls that belong to *it*.
-#
-# The generic radio machinery cannot do this. It keys on the group's `name`
-# attribute, and these three questions are three separate groups whose names
-# are not words anybody would guess; falling back to matching on the answer's
-# label picks the first "Yes" on the screen every time, which answers question
-# one three times over and leaves two and three untouched. So each question is
-# located by the text a person reads, and only the radios inside that
-# question's own block are candidates.
-#
-# The block is the smallest element containing both the question text and a
-# radio. If that block turns out to contain another question's text as well,
-# the screen is not laid out the way this expects and nothing is returned --
-# these are certifications about somebody's living arrangements, so a wrong
-# guess is worse than a stop.
 _HOUSEHOLD_QUESTION_JS = r"""
 const hint = arguments[0];
 const others = arguments[1] || [];
@@ -455,7 +310,6 @@ const radios = Array.from(block.querySelectorAll('input[type=radio]')).map(r => 
 return {found: true, text: text.slice(0, 200), radios: radios};
 """
 
-# What a named radio holds now, read back after the click.
 _HOUSEHOLD_CHECKED_JS = """
 const id = arguments[0];
 const el = id ? document.getElementById(id) : null;
@@ -463,8 +317,6 @@ return el ? !!el.checked : null;
 """
 
 
-# Every certification box on the household screen. They are ticked, not read:
-# the screen will not continue without them.
 _TICK_CERTIFICATIONS_JS = r"""
 /* Scoped to the form on purpose. This app keeps its mobile navigation menu
    in a bare checkbox outside it --
@@ -527,22 +379,8 @@ return Array.from(document.querySelectorAll('form input[type=checkbox]'))
 """
 
 
-# "Choose your phone", the device-selection screen.
 PHONE_HEADING = "choose your phone"
 
-# The two options are radios that share an id -- `id="deviceType"` on both --
-# so a label[for=] cannot tell them apart and `read_radios` has nothing unique
-# to key on. Their `value` does distinguish them, and each has the painted
-# control as its immediate next sibling:
-#
-#   <span class="b-contain">
-#     <input type="radio" id="deviceType" name="deviceType" value="free">
-#     <div class="b-input"></div>          <- what is actually on screen
-#   </span>
-#
-# So the adjacent-sibling selector is what reaches the right one. Clicking the
-# input itself would land on the div drawn over it, the same as every other
-# radio on this site.
 _PHONE_SELECTOR = 'input[name="deviceType"][value="{value}"] + div.b-input'
 
 _PHONE_STATE_JS = """
@@ -562,7 +400,6 @@ def _is_phone_screen(headings: list[str]) -> bool:
 
 
 def _choose_phone(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
-    """Pick the configured device and continue. False to stop."""
     wanted = cfg.application.phone_option
     state = sb.execute_script(_PHONE_STATE_JS, wanted) or {}
 
@@ -580,8 +417,6 @@ def _choose_phone(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
         human_click(sb, _PHONE_SELECTOR.format(value=wanted), cfg)
         pause(cfg, 0.4)
 
-    # Confirm it took. A painted radio that swallowed the click leaves the
-    # screen with no device chosen and Continue refusing to move.
     after = sb.execute_script(_PHONE_STATE_JS, wanted) or {}
     if not after.get("checked"):
         LOG.error(
@@ -591,7 +426,10 @@ def _choose_phone(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
         return False
 
     capture(sb, run_dir, f"{STEP_NAME}_phone", save=cfg.save_artifacts)
-    advance_screen(sb, cfg, "Step 10", CONTINUE_SELECTORS, settle=SETTLE_AFTER_CONTINUE)
+    advance_screen(
+        sb, cfg, "Step 10", CONTINUE_SELECTORS,
+        settle=SETTLE_AFTER_CONTINUE, first_look=cfg.step10_first_look,
+    )
     return True
 
 
@@ -608,15 +446,6 @@ def _is_qualify_screen(headings: list[str]) -> bool:
 
 
 def _choose_program(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
-    """Tick the configured qualifying programme and continue. False to stop.
-
-    Refuses rather than guesses. The programme is a claim about the applicant
-    -- which government assistance they are enrolled in, on their federal
-    benefits application -- so an option that cannot be found by name is a
-    reason to stop and let somebody look, never a reason to tick the nearest
-    one. The same goes for a tick that does not register: continuing would
-    submit the application asserting nothing, or worse, something unintended.
-    """
     wanted = cfg.application.qualifying_program
     found = sb.execute_script(_FIND_PROGRAM_JS, wanted) or {}
 
@@ -630,7 +459,6 @@ def _choose_program(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
         return False
 
     if not found.get("visible"):
-        # Everything past the first three is behind "Show More Programs".
         LOG.info("Step 10: expanding the programme list to reach %r", found["text"])
         try:
             human_click(sb, 'button:contains("Show More Programs")', cfg)
@@ -649,8 +477,6 @@ def _choose_program(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
         human_click(sb, found["selector"], cfg)
         pause(cfg, 0.4)
 
-    # Confirm it took. A painted checkbox that swallowed the click leaves the
-    # form claiming no programme at all.
     if not sb.execute_script(_PROGRAM_CHECKED_JS, found["id"]):
         LOG.error(
             "Step 10: %s did not stay ticked, so the application would claim "
@@ -660,19 +486,14 @@ def _choose_program(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
 
     capture(sb, run_dir, f"{STEP_NAME}_qualifying_program", save=cfg.save_artifacts)
     advance_screen(
-        sb, cfg, "Step 10", CONTINUE_SELECTORS, settle=SETTLE_AFTER_CONTINUE
+        sb, cfg, "Step 10", CONTINUE_SELECTORS,
+        settle=SETTLE_AFTER_CONTINUE, first_look=cfg.step10_first_look,
     )
     return True
 
 
-# The two fields on the E-Signature Consent screen, by their real ids.
-#
-# Guessed selectors missed both: `input[id*="nitial"]` does not match
-# `esigintl`, and nothing was looking for the name field at all. The screen
-# then refused to move with no validation message, which reads exactly like a
-# stuck page. Ids taken from the live DOM rather than inferred.
-ESIGN_INITIALS_FIELD = "#esigintl"        # name="eSigInitialsFld", maxlength 2
-ESIGN_NAME_FIELD = "#esigname"            # name="eSigNameFld"
+ESIGN_INITIALS_FIELD = "#esigintl"
+ESIGN_NAME_FIELD = "#esigname"
 
 _ESIGN_FILLED_JS = """
 const initials = document.querySelector(arguments[0]);
@@ -685,14 +506,6 @@ return {
 
 
 def _signature_values(lead) -> tuple[str, str]:
-    """The initials and full name to sign with, taken from the lead.
-
-    Both come from the applicant's own name rather than a constant: the
-    initials box takes two letters and the name box takes the name as the
-    site already holds it, so anything else would simply be wrong. The
-    recording types "XX" into the initials, which is a placeholder rather
-    than a rule.
-    """
     first = (getattr(lead, "first_name", "") or "").strip()
     last = (getattr(lead, "last_name", "") or "").strip()
     initials = f"{first[:1]}{last[:1]}".upper()
@@ -700,7 +513,6 @@ def _signature_values(lead) -> tuple[str, str]:
 
 
 def _answer_esign(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
-    """Agree to the E-Signature Consent and sign it. False to stop."""
     app = cfg.application
     radios = read_radios(sb)
     if radios and not answer_radio(
@@ -731,9 +543,6 @@ def _answer_esign(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
             LOG.error("Step 10: could not enter the %s (%s): %s", what, selector, exc)
             return False
 
-    # Confirm both took. The screen refuses to continue without them and says
-    # nothing about why, so an empty field presents as a page that will not
-    # move rather than as a field that was missed.
     filled = sb.execute_script(
         _ESIGN_FILLED_JS, ESIGN_INITIALS_FIELD, ESIGN_NAME_FIELD
     ) or {}
@@ -747,19 +556,14 @@ def _answer_esign(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
 
     LOG.info("Step 10: signed the consent as %s (%s)", full_name, initials)
     capture(sb, run_dir, f"{STEP_NAME}_esignature", save=cfg.save_artifacts)
-    advance_screen(sb, cfg, "Step 10", CONTINUE_SELECTORS, settle=SETTLE_AFTER_CONTINUE)
+    advance_screen(
+        sb, cfg, "Step 10", CONTINUE_SELECTORS,
+        settle=SETTLE_AFTER_CONTINUE, first_look=cfg.step10_first_look,
+    )
     return True
 
 
 def _answer_one_household_question(sb, cfg: RunConfig, hint: str, answer: str) -> bool:
-    """Answer the household question matching `hint` with `answer`.
-
-    Returns whether that question ends up holding that answer. Everything
-    here refuses rather than approximates: the question is found by the words
-    a person reads, the option by the word they would click, and the result is
-    read back afterwards. All three questions are Yes/No, so a click that
-    lands on the wrong question's row is both easy to make and invisible.
-    """
     others = [h for h, _ in HOUSEHOLD_QUESTIONS if h != hint]
     found = sb.execute_script(_HOUSEHOLD_QUESTION_JS, hint, others) or {}
 
@@ -793,8 +597,6 @@ def _answer_one_household_question(sb, cfg: RunConfig, hint: str, answer: str) -
     human_click(sb, target["selector"], cfg)
     pause(cfg, 0.4)
 
-    # Read it back. A painted radio that swallowed the click leaves the
-    # certification saying the opposite of what was intended, or nothing.
     if target.get("id"):
         held = sb.execute_script(_HOUSEHOLD_CHECKED_JS, target["id"])
         if held is False:
@@ -807,20 +609,8 @@ def _answer_one_household_question(sb, cfg: RunConfig, hint: str, answer: str) -
 
 
 def _answer_household(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
-    """Answer the one-per-household certification. False to stop.
-
-    Each question is answered from its own config field rather than a shared
-    default, so the three cannot silently drift into agreeing with each other.
-    Refuses if a question cannot be matched: a certification about somebody's
-    living arrangements is not a thing to answer by guessing which button is
-    nearest.
-    """
     app = cfg.application
 
-    # Saved before anything is answered, not after. The selectors here were
-    # read off a recording rather than the live DOM, so the first refusal is
-    # the thing that says what the screen actually looks like -- and a
-    # refusal returns early, past the capture at the end.
     capture(sb, run_dir, f"{STEP_NAME}_household_as_found", save=cfg.save_artifacts)
 
     for hint, field in HOUSEHOLD_QUESTIONS:
@@ -829,8 +619,6 @@ def _answer_household(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
             return False
         pause(cfg, 0.3)
 
-    # The certifications. The screen will not continue without them, and the
-    # last one is the electronic signature.
     for box in sb.execute_script(_TICK_CERTIFICATIONS_JS) or []:
         if box.get("checked") or not box.get("selector"):
             continue
@@ -846,18 +634,14 @@ def _answer_household(sb, cfg: RunConfig, lead, run_dir: Path) -> bool:
         return False
 
     capture(sb, run_dir, f"{STEP_NAME}_household", save=cfg.save_artifacts)
-    advance_screen(sb, cfg, "Step 10", CONTINUE_SELECTORS, settle=SETTLE_AFTER_CONTINUE)
+    advance_screen(
+        sb, cfg, "Step 10", CONTINUE_SELECTORS,
+        settle=SETTLE_AFTER_CONTINUE, first_look=cfg.step10_first_look,
+    )
     return True
 
 
 def classify_lead(sb, cfg: RunConfig, lead, run_dir: Path, *, submit: bool = True) -> dict:
-    """Classify the screen after PERSONAL INFO. Returns the step inventory
-    with `verdict` and `screen` added.
-
-    `submit=False` stops at the first acknowledge-and-continue screen rather
-    than pressing its button, so a dry run reaches the review page and leaves
-    the consent on it unclicked.
-    """
     LOG.info("Step 10: reading the decision screen for %s", lead.label)
 
     enter_enrollment_frame(sb, cfg, "Step 10")
@@ -865,15 +649,9 @@ def classify_lead(sb, cfg: RunConfig, lead, run_dir: Path, *, submit: bool = Tru
     screen = sb.execute_script(_SCREEN_JS) or {}
     headings = screen.get("headings") or []
 
-    # Click past the screens that only ask to be acknowledged, and answer the
-    # one that asks how the applicant qualifies, so the verdict is read from a
-    # screen that actually states something.
     for _ in range(MAX_PASS_THROUGH):
         seen = body_text(sb)
 
-        # The screens that ask something. Each is answered from config and
-        # then continued past; any of them refusing stops the lead rather
-        # than carrying on with the question unanswered.
         answered = None
         if _is_qualify_screen(headings):
             answered = ("qualification", _choose_program)
@@ -913,21 +691,10 @@ def classify_lead(sb, cfg: RunConfig, lead, run_dir: Path, *, submit: bool = Tru
 
         LOG.info("Step 10: %s screen -- continuing past it", name)
         capture(sb, run_dir, f"{STEP_NAME}_{name.replace(' ', '_')}", save=cfg.save_artifacts)
-        # The one screen allowed a second press of Continue.
-        #
-        # These are the acknowledge-and-continue screens -- the account
-        # review being the only one so far -- and nothing on them is
-        # submitted. Its Continue asks the California LifeLine Administrator
-        # to check eligibility, so pressing it twice repeats a lookup rather
-        # than committing anything. Row 245 sat on this exact screen for 106
-        # seconds after a click that real-input had confirmed on target, with
-        # every control valid and no message of any kind, and a single click
-        # could never tell us whether the click or the host was at fault.
-        #
-        # Every screen that answers a question keeps its single click.
         advance_screen(
             sb, cfg, "Step 10", CONTINUE_SELECTORS,
             settle=SETTLE_AFTER_CONTINUE,
+            first_look=cfg.step10_first_look,
             allow_reclick=True,
         )
         enter_enrollment_frame(sb, cfg, "Step 10")
@@ -973,11 +740,6 @@ def classify_lead(sb, cfg: RunConfig, lead, run_dir: Path, *, submit: bool = Tru
 def _dump_screen(
     run_dir: Path, screen: dict, body: str, verdict: str, why: str, save: bool
 ) -> None:
-    """Write the screen's text next to the step's other artifacts.
-
-    The element inventory `capture` writes lists fields and buttons but not the
-    words on the page, and the words are what classification turns on.
-    """
     if not save:
         return
     try:
@@ -986,5 +748,5 @@ def _dump_screen(
         (run_dir / f"{STEP_NAME}_screen.json").write_text(
             json.dumps(payload, indent=2), encoding="utf-8"
         )
-    except Exception as exc:  # never fail a verdict over a dump
+    except Exception as exc:
         LOG.warning("Could not write the screen dump: %s", exc)

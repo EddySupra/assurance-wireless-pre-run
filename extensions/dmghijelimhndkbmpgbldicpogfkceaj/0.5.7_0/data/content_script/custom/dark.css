@@ -1,0 +1,54 @@
+:root {
+  accent-color: #a9a9a9;
+  color-scheme: dark !important;
+  scrollbar-color: auto !important;
+}
+
+html,
+body {
+  color: #555 !important;
+  background: #ececec !important;
+}
+
+html,
+iframe {
+  filter: invert(100%) !important;
+  -webkit-filter: invert(100%) !important;
+}
+
+em,
+img,
+svg,
+form,
+image,
+video,
+audio,
+embed,
+object,
+canvas,
+figure:empty,
+button:not(:has(img)) {
+  filter: brightness(85%) invert(100%) !important;
+  -webkit-filter: brightness(85%) invert(100%) !important;
+}
+
+form em,
+form img,
+form svg,
+form image,
+form video,
+form embed,
+form object,
+form button,
+form canvas,
+form figure:empty {
+  filter: invert(0) !important;
+  -webkit-filter: invert(0) !important;
+}
+
+[style*='background:url']:not(html):not(body):not(input),
+[style*='background: url']:not(html):not(body):not(input),
+[style*='background-image']:not(html):not(body):not(input) {
+  filter: brightness(85%) invert(100%) !important;
+  -webkit-filter: brightness(85%) invert(100%) !important;
+}

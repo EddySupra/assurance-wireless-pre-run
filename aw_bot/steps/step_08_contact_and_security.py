@@ -1,21 +1,3 @@
-"""Step 8 -- contact preferences, account PIN and security questions.
-
-The third and last PERSONAL INFO screen. Nothing here comes off the sheet: the
-answers are the fixed ones in `cfg.application`, because this is a pre-run that
-stops at the decision screen rather than completing an enrollment. See
-`ApplicationConfig` for what that assumption costs if it ever changes.
-
-The screen has three parts:
-
-    preferences  Language, how to be contacted, print format -- invisible
-                 radios, handled the same way as the address screen's
-    account PIN  6-15 digits, entered twice. The form rejects anything
-                 personal or guessable, which is why it is not derived from
-                 the lead
-    security     Three questions picked from one list, each with an answer.
-                 The three have to be different from each other
-"""
-
 from pathlib import Path
 
 from ..artifacts import capture
@@ -44,16 +26,12 @@ CONTINUE_SELECTORS = (
     'button:contains("Continue")',
 )
 
-# Each preference radio group, matched on its group name. The wording of the
-# options is the label text the site paints next to the hidden input.
 PREFERENCES = (
     ("language", ("language", "lang")),
     ("contact method", ("contact", "reach", "bestway")),
     ("print preference", ("print", "communication", "format")),
 )
 
-# Read the security-question dropdowns' real options, so three different
-# questions can be chosen without hard-coding wording the site may reword.
 _OPTIONS_JS = """
 const el = document.getElementById(arguments[0]);
 if (!el) return null;
@@ -66,7 +44,6 @@ return Array.from(el.options)
 def fill_contact_and_security(
     sb, cfg: RunConfig, lead: Lead, run_dir: Path, *, submit: bool = True
 ) -> dict:
-    """Fill the screen and advance. With submit=False, stop before Continue."""
     LOG.info("Step 8: contact preferences and account security for %s", lead.label)
 
     enter_enrollment_frame(sb, cfg, "Step 8")
@@ -114,8 +91,6 @@ def _set_pin(sb, pin: str, cfg: RunConfig) -> None:
     human_type(sb, PIN, pin, cfg)
     human_type(sb, PIN_CONFIRM, pin, cfg)
 
-    # Both fields are type=password, so read them back rather than trusting
-    # that a keystroke-masked field took what was typed.
     for selector, label in ((PIN, "PIN"), (PIN_CONFIRM, "PIN confirmation")):
         if (sb.get_attribute(selector, "value") or "") != pin:
             raise PageMismatchError(f"Step 8: {label} did not take the configured value")
@@ -123,7 +98,6 @@ def _set_pin(sb, pin: str, cfg: RunConfig) -> None:
 
 
 def _set_security_questions(sb, answers: tuple, cfg: RunConfig) -> None:
-    """Pick three different questions and answer each one."""
     if len(answers) < len(QUESTIONS):
         raise PageMismatchError(
             f"Step 8: {len(QUESTIONS)} security answers are needed but config "
@@ -152,6 +126,4 @@ def _set_security_questions(sb, answers: tuple, cfg: RunConfig) -> None:
 
     errors = validation_errors(sb)
     if errors:
-        # The site rejects answers it considers personal or guessable, and it
-        # says so inline rather than waiting for Continue.
         LOG.warning("Form is flagging the security answers: %s", errors)

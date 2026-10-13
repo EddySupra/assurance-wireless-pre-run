@@ -1,0 +1,42 @@
+a[href*='./'],
+a[href*='?tab='],
+a[href*='&tab='],
+div[class*='-button-flat'],
+a[aria-label*='@gmail.com'] {
+  filter: invert(100%) !important;
+  -webkit-filter: invert(100%) !important;
+}
+
+.MrEfLc,
+.WwFbJd .NQV3m,
+.docs-homescreen-icon,
+.docs-homescreen-grid-metadata-row,
+.docs-homescreen-warmwelcome-sites-gotit-button {
+  filter: invert(100%) !important;
+  -webkit-filter: invert(100%) !important;
+}
+
+a[href*='./'] img[src*='.gstatic.'],
+.gb_B img[src*='.googleusercontent.'],
+.jfk-button#docs-homescreen-add .docs-homescreen-icon {
+  filter: invert(0) !important;
+  -webkit-filter: invert(0) !important;
+}
+
+a[href*='?tab='] span,
+a[href*='&tab='] span {
+  color: rgba(177, 177, 177, 0.87) !important;
+}
+
+.SbB9bf svg.NMm5M,
+.XOaCHd svg.lS67ae {
+  fill: #fff;
+}
+
+.gb_Ha svg {
+  fill: #ddd !important;
+}
+
+.G6g8Wc:first-child {
+  background-color: #dedede;
+}

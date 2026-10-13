@@ -7,3 +7,4 @@ artifacts/
 downloaded_files/
 credentials/
 .test_cursor
+extensions/.unpacked/

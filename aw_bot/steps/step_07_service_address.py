@@ -1,20 +1,3 @@
-"""Step 7 -- "Service/Home/e911 Registered Address", the second PERSONAL INFO screen.
-
-Reached by Continue on PERSONAL INFO. The wizard rail reads
-PERSONAL INFO -> ELIGIBILITY -> PHONE OPTIONS -> DISCLOSURES -> SUBMIT PROOF,
-and this screen is still inside the first stage.
-
-City, State and ZIP arrive prefilled from the ZIP check, so those are verified
-rather than typed. What has to be supplied is the street, and -- the screen
-says so in its own warning -- the apartment/unit number when the address has
-one: "Your application cannot be approved without it."
-
-The two Yes/No questions ("Is this a temporary address?", "Mailing Address same
-as Home Address") are radios the site styles invisibly, so they never show up
-in the element inventory and cannot be clicked directly -- page_utils'
-`answer_radio` finds them by group name and clicks the label instead.
-"""
-
 from pathlib import Path
 
 from ..artifacts import capture
@@ -43,9 +26,6 @@ CONTINUE_SELECTORS = (
     'button:contains("Continue")',
 )
 
-# The answers this run gives to the screen's two Yes/No questions. Temporary
-# address is No because the sheet holds home addresses; mailing same as home is
-# Yes because the sheet carries no separate mailing address to give.
 ANSWERS = (
     ("temporary address", ("temporary", "temp"), "No"),
     ("mailing same as home", ("mailing", "sameas"), "Yes"),
@@ -54,7 +34,6 @@ ANSWERS = (
 def fill_service_address(
     sb, cfg: RunConfig, lead: Lead, run_dir: Path, *, submit: bool = True
 ) -> dict:
-    """Fill the address screen and advance. With submit=False, stop before Continue."""
     LOG.info("Step 7: filling the service address for %s", lead.label)
 
     enter_enrollment_frame(sb, cfg, "Step 7")
@@ -65,8 +44,6 @@ def fill_service_address(
     if lead.unit:
         _type_checked(sb, UNIT, lead.unit, "apartment/unit", cfg)
     else:
-        # The screen is explicit that a missing unit number sinks the
-        # application, so this is worth a warning rather than a debug line.
         LOG.warning(
             "No apartment/unit for this lead. If %s is a multi-unit address the "
             "application cannot be approved without it.", lead.street
@@ -94,7 +71,6 @@ def fill_service_address(
 
 
 def _verify_screen(sb) -> None:
-    """Fail loudly if Continue on PERSONAL INFO landed somewhere else."""
     try:
         sb.wait_for_element_visible(STREET, timeout=10)
     except Exception as exc:
@@ -123,7 +99,6 @@ def _type_checked(sb, selector: str, value: str, label: str, cfg: RunConfig) -> 
 
 
 def _verify_prefilled(sb, selector: str, expected: str, label: str, cfg: RunConfig) -> None:
-    """These come from the ZIP check. Retype only if they are wrong."""
     actual = (sb.get_attribute(selector, "value") or "").strip()
     if actual.upper() == expected.strip().upper():
         LOG.info("%s already prefilled correctly: %s", label.capitalize(), actual)

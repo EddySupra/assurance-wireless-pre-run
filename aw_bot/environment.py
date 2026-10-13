@@ -1,41 +1,7 @@
-"""What this browser tells the world about itself, and whether it adds up.
-
-Nothing here changes the browser. It reads what the browser already reports and
-says out loud where the story contradicts itself, because a contradiction is a
-much louder signal than any single value. A profile claiming Chrome 151 in its
-user agent while `userAgentData` says 118, or claiming Windows while
-`navigator.platform` says MacIntel, or claiming a US benefit application from a
-browser set to `Europe/Berlin`, is worse off than one with a plain, boring,
-consistent identity -- and until now nothing in this project ever looked.
-
-There is a second job, and on this site it is the more urgent one. Cloudflare
-Turnstile is the gate on the eligible-applicant screen, it runs inside a
-cross-origin iframe (Cloudflare's own, nested inside the enrollment app's,
-nested inside assurancewireless.com), and it has prerequisites that have
-nothing to do with how human the session looks:
-
-    storage       A challenge that cannot read or write storage in its frame
-                  cannot complete. Third-party cookies blocked, or storage
-                  partitioned away from the embedder, and Turnstile fails with
-                  a `600***` code however convincing the rest of the session is.
-
-    the clock     Challenge payloads are time-bounded. A machine whose clock is
-                  out by more than a minute or two fails them, and the failure
-                  looks exactly like being blocked.
-
-Both are cheap to check and neither was being checked. `(600)` is what this
-form shows when it cannot continue, and `600***` is what Turnstile returns when
-the challenge could not be completed -- so these are the first two things worth
-ruling out before blaming an IP.
-"""
-
 import time
 
 from .logs import LOG
 
-# Read in one pass so the values are all from the same instant. Everything is
-# wrapped: this runs on whatever page happens to be open at session start,
-# which on a fresh profile is often `about:blank`, where half of these throw.
 _IDENTITY_JS = r"""
 const out = {};
 const safe = (fn, fallback) => { try { return fn(); } catch (e) { return fallback; } };
@@ -104,9 +70,6 @@ return out;
 """
 
 
-# Whether a challenge running in this document could actually do its job.
-# Meant to be run *inside* the enrollment frame, where the answer differs from
-# the top-level page -- which is the entire point.
 _STORAGE_JS = r"""
 const out = {framed: false, crossOrigin: null};
 const safe = (fn, fallback) => { try { return fn(); } catch (e) { return fallback; } };
@@ -159,7 +122,6 @@ return out;
 
 
 def _chrome_major(text: str) -> str:
-    """The Chrome major version named in a UA string, or ''."""
     if not text:
         return ""
     marker = "Chrome/"
@@ -170,12 +132,6 @@ def _chrome_major(text: str) -> str:
 
 
 def _brand_major(ua_data: dict) -> str:
-    """The Chrome/Chromium major version in the client-hint brand list.
-
-    Skips the GREASE entry -- the deliberately silly `Not=A?Brand` one -- which
-    carries a meaningless version by design and would otherwise be read as a
-    disagreement.
-    """
     if not ua_data:
         return ""
     for brand in ua_data.get("brands") or []:
@@ -188,7 +144,6 @@ def _brand_major(ua_data: dict) -> str:
 
 
 def _platform_family(text: str) -> str:
-    """Windows / macOS / Linux / Android / iOS, from whatever string is given."""
     low = (text or "").lower()
     if "windows" in low or "win32" in low or "win64" in low:
         return "Windows"
@@ -203,20 +158,12 @@ def _platform_family(text: str) -> str:
     return ""
 
 
-# Timezones that belong to the country a US benefits application should be
-# coming from. Not exhaustive -- it only has to be good enough to catch a
-# profile pointed at the wrong continent, which is the failure that matters.
 _US_TIMEZONE_PREFIXES = (
     "America/", "US/", "Pacific/Honolulu", "Pacific/Pago_Pago", "Etc/GMT+",
 )
 
 
 def check(identity: dict, cfg=None) -> list[str]:
-    """Everything about this identity that contradicts something else.
-
-    Returns plain sentences, worst first. An empty list means the browser tells
-    one consistent story -- which is all that is being asked of it.
-    """
     problems: list[str] = []
     if not identity:
         return ["the browser reported nothing about itself"]
@@ -224,7 +171,6 @@ def check(identity: dict, cfg=None) -> list[str]:
     ua = identity.get("userAgent") or ""
     ua_data = identity.get("uaData") or {}
 
-    # -- the version told twice ---------------------------------------------
     ua_major = _chrome_major(ua)
     hint_major = _brand_major(ua_data)
     if ua_major and hint_major and ua_major != hint_major:
@@ -234,7 +180,6 @@ def check(identity: dict, cfg=None) -> list[str]:
             f"one of them."
         )
 
-    # -- the platform told three times --------------------------------------
     families = {
         "user agent": _platform_family(ua),
         "navigator.platform": _platform_family(identity.get("platform") or ""),
@@ -245,7 +190,6 @@ def check(identity: dict, cfg=None) -> list[str]:
         detail = ", ".join(f"{where} says {fam}" for where, fam in named.items())
         problems.append(f"the operating system does not agree with itself: {detail}")
 
-    # -- a desktop UA on a touch device, or the other way round -------------
     mobile_hint = (ua_data or {}).get("mobile")
     if mobile_hint is True and "Mobile" not in ua:
         problems.append(
@@ -254,10 +198,8 @@ def check(identity: dict, cfg=None) -> list[str]:
         )
     touch = identity.get("touch")
     if isinstance(touch, int) and touch > 0 and _platform_family(ua) in ("Windows", "macOS"):
-        # Touch-screen laptops exist, so this is a note rather than a verdict.
         LOG.debug("Profile reports %d touch points on a desktop platform", touch)
 
-    # -- language and place --------------------------------------------------
     languages = identity.get("languages") or []
     primary = (identity.get("language") or (languages[0] if languages else "") or "")
     if primary and not primary.lower().startswith("en"):
@@ -279,7 +221,6 @@ def check(identity: dict, cfg=None) -> list[str]:
             f"meant to be."
         )
 
-    # -- automation artefacts ------------------------------------------------
     if identity.get("webdriver") is True:
         problems.append(
             "navigator.webdriver is true -- this browser is announcing that it "
@@ -293,7 +234,6 @@ def check(identity: dict, cfg=None) -> list[str]:
     if identity.get("chrome") is False:
         problems.append("window.chrome is missing, which no real desktop Chrome does")
 
-    # -- geometry ------------------------------------------------------------
     screen = identity.get("screen") or {}
     window_box = identity.get("window") or {}
     if screen.get("w") and window_box.get("outerW"):
@@ -319,12 +259,6 @@ def check(identity: dict, cfg=None) -> list[str]:
 
 
 def audit(sb, cfg=None, worker_id: int = 1) -> dict:
-    """Read the identity, say what is wrong with it, and hand it back.
-
-    Never raises and never blocks the run: a contradiction is worth a warning
-    in the log, not a refusal to start. The caller gets the raw reading so it
-    can be written into the failure dump alongside everything else.
-    """
     try:
         identity = sb.execute_script(_IDENTITY_JS) or {}
     except Exception as exc:
@@ -364,13 +298,6 @@ def audit(sb, cfg=None, worker_id: int = 1) -> dict:
 
 
 def clock_skew(identity: dict | None = None, timeout: float = 4.0) -> float | None:
-    """Seconds this machine's clock is ahead of real time, or None if unknown.
-
-    Asked of an HTTP `Date` header rather than of NTP: it needs no extra
-    dependency, and one HEAD request to a major CDN is indistinguishable from
-    any other traffic. Best-effort by design -- an offline machine gets None
-    and the caller says nothing.
-    """
     try:
         import requests
 
@@ -384,8 +311,6 @@ def clock_skew(identity: dict | None = None, timeout: float = 4.0) -> float | No
         from email.utils import parsedate_to_datetime
 
         remote = parsedate_to_datetime(served).timestamp()
-        # Compare against the midpoint of the request, so the round trip is not
-        # counted as skew.
         return (before + after) / 2 - remote
     except Exception as exc:
         LOG.debug("Could not check the clock: %s", exc)
@@ -393,18 +318,12 @@ def clock_skew(identity: dict | None = None, timeout: float = 4.0) -> float | No
 
 
 def storage_report(sb, label: str = "") -> dict:
-    """Whether a challenge in *this* document could read and write storage.
-
-    Call it from inside the enrollment frame. The answer at the top level is
-    not the answer here, and here is where Turnstile runs.
-    """
     try:
         report = sb.execute_script(_STORAGE_JS) or {}
     except Exception as exc:
         LOG.debug("%s: could not check frame storage: %s", label, exc)
         return {}
 
-    # The Storage Access API answer arrives a tick later.
     if report.get("crossOrigin"):
         try:
             time.sleep(0.15)

@@ -1,0 +1,149 @@
+* {
+  border-color: #292929 !important;
+}
+
+.w3-code,
+.w3-left, 
+.w3-right, 
+.w3-theme,
+.ws-black,
+.w3-panel, 
+.w3-table, 
+.tut-button,
+.w3-table-all, 
+.ws-table-all,
+.w3-dark-grey,
+.w3-dark-gray,
+.tryit-button,
+.pelle-btn:link, 
+.pelle-btn:visited,
+.w3-example .w3-btn, 
+.w3-example .ws-btn,
+form.example button,
+div[class*='w3-highway-'],
+.w3-hover-dark-grey:hover,
+.w3-hover-dark-gray:hover {
+  filter: brightness(80%) (100%) !important;
+  -webkit-filter: brightness(80%) invert(100%) !important;
+}
+
+.w3-blue,
+.ws-green,
+.w3-hover-blue:hover,
+.w3-hover-green:hover {
+  filter: invert(100%) !important;
+  -webkit-filter: invert(100%) !important;
+}
+
+.ws-black a[class*='-button'] {
+  filter: invert(0) !important;
+  -webkit-filter: invert(0) !important;
+}
+
+#fixed,
+#change, 
+#html5DIV, 
+#sidenav a,
+#subtopnav,
+#selectedcolor, 
+#footerwrapper,
+#lumtopcontainer,
+#top-nav-bar #dropdown-nav-outer-wrapper {
+  filter: invert(100%) !important;
+  -webkit-filter: invert(100%) !important;
+}
+
+.sidenav,
+div[class*='w3-black'],
+div[class*='w3-black']:hover {
+  background-color: #fff !important;
+}
+
+.w3-dark-grey,
+.w3-dark-gray,
+.w3-hover-dark-grey:hover,
+.w3-hover-dark-gray:hover {
+  background-color: #1d1d1d !important
+}
+
+.ws-btn {
+  color: black !important;
+  background-color: #a34e8e !important;
+}
+
+.w3-bar .w3-button {
+  font-weight: 600 !important;
+}
+
+#w3-logo {
+  background-color: black !important;
+}
+
+#pagetop .bar-item-hover:hover {
+  font-weight: 600;
+  color: #000 !important;
+  background-color: #a34e8e !important;
+}
+
+#w3loginbtn {
+  color: black !important;
+  background-color: #a94db5 !important;
+}
+
+#w3-exerciseform .exercisewindow {
+  background-color: #858585 !important;
+}
+
+html #sidenav a {
+  color: #a7a7a7 !important;
+}
+
+html #sidenav a:hover, 
+html #sidenav a:focus {
+  background-color: #2b2b2b;
+}
+
+form.example input[type='text'] {
+  color: #000000 !important;
+}
+
+#top-nav-bar .tnb-right-section .tnb-right-side-btn {
+  color: #fff !important;
+  background-color: #000000 !important;
+}
+
+#top-nav-bar .tnb-right-section .tnb-right-side-btn:hover {
+  background-color: #3e3e3e !important;
+}
+
+.fast-cmp-layout-body,
+.fast-cmp-layout-wrapper {
+  background-color: #000000 !important;
+}
+
+#fast-cmp-home h1,
+.fast-cmp-summary-box,
+#fast-cmp-home .fast-cmp-layout-body > p {
+  color: #fff !important;
+}
+
+html:has(#fast-cmp-container),
+body:has(#fast-cmp-container),
+html:has(#fast-cmp-root[style*='block']),
+body:has(#fast-cmp-root[style*='block']) {
+  background: rgb(236 236 236 / 50%) !important;
+}
+
+#fast-cmp-container a,
+#fast-cmp-container a:link,
+#fast-cmp-container a:visited {
+  color: #8c95fd !important;
+}
+
+#fast-cmp-home .fast-cmp-navigation-button {
+  color: #929aff !important;
+}
+
+.topnavbackground {
+  background-color: #d7d3d3 !important;
+}

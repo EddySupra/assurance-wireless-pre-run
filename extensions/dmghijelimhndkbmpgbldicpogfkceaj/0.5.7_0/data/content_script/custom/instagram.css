@@ -1,0 +1,27 @@
+a[href='/accounts/emailsignup/'] {
+  filter: invert(100%) !important;
+  -webkit-filter: invert(100%) !important;
+}
+
+.Fifk5,
+.lOPC8,
+.ixdEe,
+.cq2ai,
+.be6sR,
+._0aCwM,
+._01jIc,
+.x1c3f6yh {
+  filter: invert(100%) !important;
+  -webkit-filter: invert(100%) !important;
+}
+
+#login_form input[name='pass'],
+#login_form input[name='email'],
+#login_form div[role='button'] .html-div span {
+  color: #fff;
+}
+
+#login_form div[role='button'] svg,
+#login_form svg[role='img'] path[fill='#1C2B33'] {
+  fill: #fff;
+}

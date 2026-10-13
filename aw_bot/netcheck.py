@@ -1,25 +1,3 @@
-"""Is a profile's network fit to run leads on?
-
-The expensive way to discover a flagged proxy is to send a real applicant
-through eight screens and watch the ninth hang. This asks the same question
-with one page load and no lead data at all: open the public start page, see
-what comes back, and report.
-
-Three things decide the answer:
-
-    exit IP     which address the profile actually goes out on, so a change of
-                proxy can be confirmed rather than assumed
-    verdict     whether the site served the page, an Akamai "Access Denied", a
-                Cloudflare challenge, or the "botnet activity detected"
-                judgement on the whole network
-    sensor      whether Akamai's bot sensor (`/akam/...`) loads. Blocked, the
-                site scores the session as a bot no matter how clean the IP is
-
-Run it before a batch, and after changing proxies:
-
-    python run.py --check-network
-"""
-
 from dataclasses import dataclass
 
 from .config import START_URL, RunConfig
@@ -27,8 +5,6 @@ from .gologin_backend import fetch_profiles, gologin_session
 from .logs import LOG
 from .page_utils import challenge_present, network_reputation_block
 
-# Asked from inside the page, so it goes through the profile's proxy rather
-# than this machine's connection.
 _EXIT_IP_JS = """
 const done = arguments[arguments.length - 1];
 fetch('https://api64.ipify.org?format=text')
@@ -36,8 +12,6 @@ fetch('https://api64.ipify.org?format=text')
   .catch(e => done('unknown'));
 """
 
-# Akamai's sensor endpoint. A blocked request here is self-inflicted -- see
-# GoLoginConfig.disable_extensions.
 _SENSOR_JS = """
 const done = arguments[arguments.length - 1];
 fetch('/akam/13/76b1f76d')
@@ -48,8 +22,6 @@ fetch('/akam/13/76b1f76d')
 
 @dataclass
 class NetworkReport:
-    """What one profile's network looks like to the site."""
-
     profile_id: str
     name: str
     exit_ip: str = "?"
@@ -69,7 +41,6 @@ class NetworkReport:
 
 
 def check_profile(cfg: RunConfig, profile_id: str, name: str) -> NetworkReport:
-    """Load the start page once on this profile and report what came back."""
     report = NetworkReport(profile_id=profile_id, name=name)
 
     try:
@@ -84,7 +55,6 @@ def check_profile(cfg: RunConfig, profile_id: str, name: str) -> NetworkReport:
 
             report.verdict = _verdict(sb)
 
-            # Only meaningful once the site actually served us a page.
             if report.verdict == "ok":
                 try:
                     report.sensor = sb.driver.execute_async_script(_SENSOR_JS)
@@ -99,7 +69,6 @@ def check_profile(cfg: RunConfig, profile_id: str, name: str) -> NetworkReport:
 
 
 def _verdict(sb) -> str:
-    """What the site served: the page, a block, or a challenge."""
     reputation = network_reputation_block(sb)
     if reputation:
         return "BOTNET: network flagged"
@@ -119,7 +88,6 @@ def _verdict(sb) -> str:
 
 
 def check_network(cfg: RunConfig, limit: int = 0) -> int:
-    """Check every profile and print a table. Returns a process exit code."""
     profiles = [p for p in fetch_profiles(cfg.gologin.token) if p.get("id")]
     if cfg.gologin.profile_ids:
         wanted = set(cfg.gologin.profile_ids)

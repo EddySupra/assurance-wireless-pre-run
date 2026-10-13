@@ -1,28 +1,3 @@
-"""Real OS-level mouse and keyboard, rather than synthetic browser events.
-
-Everything WebDriver does -- `element.click()`, `send_keys`, ActionChains --
-is injected into the page. The operating system never sees a mouse move or a
-keypress, and neither does anything watching at that level. Akamai Bot Manager
-is watching at that level: its sensor script (the `/akam/...` requests) reports
-pointer paths, key timings and event trustedness, and a session that submits
-form after form with no input telemetry at all scores as a bot.
-
-This drives the real cursor and the real keyboard instead, through pyautogui,
-so the events carry `isTrusted: true` and the sensor sees a person.
-
-What that costs, and why this is opt-in:
-
-  * It needs a visible window. Headless has no window to aim at.
-  * It takes over the physical mouse and keyboard of this machine. Whatever
-    has focus receives the keystrokes, so the run owns the desktop while it
-    works -- don't use the machine for anything else.
-  * One browser at a time. There is one cursor, so parallel workers would
-    fight over it; `should_use` refuses anything but a single worker.
-
-Every helper degrades to the caller's synthetic path on any failure, so real
-input never costs reliability.
-"""
-
 import random
 import time
 
@@ -39,9 +14,6 @@ except Exception:  # pragma: no cover - platform dependent
 try:
     import pyautogui
 
-    # A move into a screen corner is pyautogui's abort gesture. The run moves
-    # the pointer near window edges legitimately, and having it raise there
-    # would fail a lead for no reason.
     pyautogui.FAILSAFE = False
     pyautogui.PAUSE = 0
     AVAILABLE = True
@@ -51,9 +23,6 @@ except Exception as exc:  # pragma: no cover - depends on the display
     LOG.debug("pyautogui unavailable, real input disabled: %s", exc)
 
 
-# Where the page's (0, 0) sits on the physical screen. Chrome exposes the
-# window position and the viewport size; the difference between outer and
-# inner height is the chrome above the page (tab strip, omnibox).
 _VIEWPORT_ORIGIN_JS = """
 return {
   x: window.screenX + (window.outerWidth - window.innerWidth) / 2,
@@ -63,20 +32,12 @@ return {
 };
 """
 
-# An element's box in viewport coordinates. No scrolling here: the real wheel
-# has already done that, and a scrollIntoView now would move the page out from
-# under the coordinates we are about to aim at.
 _ELEMENT_BOX_JS = """
 const el = arguments[0];
 const r = el.getBoundingClientRect();
 return {x: r.left, y: r.top, w: r.width, h: r.height};
 """
 
-# Is our element really the thing drawn at this point? A sticky header, a
-# consent bar or a modal can sit over it, and a real click hits whatever is on
-# top -- silently, because the click itself succeeds. Synthetic clicks never
-# had this problem, which is why it only showed up with real input: step 4
-# reported a successful click on Apply Now while the page never navigated.
 _HIT_TEST_JS = r"""
 const el = arguments[0], x = arguments[1], y = arguments[2];
 const top = document.elementFromPoint(x, y);
@@ -93,7 +54,6 @@ return {
 
 
 def should_use(cfg) -> bool:
-    """Is real input both wanted and usable for this run?"""
     if not getattr(cfg, "real_input", False):
         return False
     if not AVAILABLE:
@@ -102,11 +62,6 @@ def should_use(cfg) -> bool:
     if cfg.headless:
         LOG.warning("real_input needs a visible window; headless run uses synthetic input")
         return False
-    # The browser has to be on this machine for the machine's cursor to reach
-    # it. On a hosted backend it is not, and pyautogui would still type --
-    # into whatever window here happens to have focus. That is an applicant's
-    # SSN going into somebody's terminal, so this refuses rather than degrades
-    # quietly the way the helpers below do.
     backend = (getattr(cfg, "browser_backend", "") or "").lower()
     if backend in ("browserless", "remote"):
         LOG.warning(
@@ -127,16 +82,6 @@ def should_use(cfg) -> bool:
 
 
 def display_size() -> tuple[int, int] | None:
-    """The real monitor's size in pixels, or None if it cannot be asked.
-
-    Deliberately the *physical* display rather than anything the browser
-    reports. A GoLogin profile's `screen.width/height` belong to its
-    fingerprint and can name a monitor far larger than the one actually
-    attached -- and the real mouse can only reach pixels that exist. A window
-    sized to the fingerprint instead of to the hardware puts the lower half of
-    the form at coordinates off the bottom of the screen, where every click
-    and keystroke aimed at it goes nowhere.
-    """
     if not AVAILABLE:
         return None
     try:
@@ -150,7 +95,6 @@ def display_size() -> tuple[int, int] | None:
 
 
 def _matching_windows(title: str) -> list:
-    """Windows whose caption carries this page's title."""
     stem = (title or "")[:40]
     if not stem:
         return []
@@ -160,9 +104,6 @@ def _matching_windows(title: str) -> list:
         return []
 
 
-# What Orbita and Chrome put at the end of their window captions. Used only
-# when the page title has not matched, so a navigation mid-look cannot leave
-# the run with nothing to focus.
 _BROWSER_CAPTIONS = ("Orbita", "Google Chrome", "Chromium")
 
 
@@ -177,21 +118,6 @@ def _browser_windows() -> list:
 
 
 def focus_window(sb, patience: float = 6.0) -> bool:
-    """Bring the browser to the front, waiting for it if something else has it.
-
-    `patience` is what stops a moment's distraction costing a lead. Windows
-    will not hand the foreground to a process that does not already own it,
-    so while somebody is typing in another window every attempt here fails --
-    and the old version answered that by giving up at once, which turned
-    "the operator typed a sentence" into a lead that could not be filled.
-    Waiting a few seconds and asking again costs nothing and usually lands.
-
-    This is not a nicety. pyautogui types wherever the operating system's focus
-    happens to be, so if anything else is in front -- a terminal, the GoLogin
-    app -- the applicant's details get typed into that instead, and the form is
-    left half empty with no error anywhere. Aiming the mouse has the same
-    problem: the click lands on whatever is drawn at those coordinates.
-    """
     if not WINDOWS_AVAILABLE:
         return False
     try:
@@ -200,14 +126,8 @@ def focus_window(sb, patience: float = 6.0) -> bool:
         return False
 
     try:
-        # Match on the page title, which Chrome puts at the front of its own.
         candidates = _matching_windows(title)
         if not candidates:
-            # The title changes as the page navigates, and the window's copy
-            # of it lags by a moment -- so a miss here is often just bad
-            # timing rather than a missing window. Look again before giving
-            # up, and fall back to naming the browser itself, which does not
-            # change while the page does.
             time.sleep(0.4)
             candidates = _matching_windows(title) or _browser_windows()
         if not candidates:
@@ -221,9 +141,6 @@ def focus_window(sb, patience: float = 6.0) -> bool:
         if window.isMinimized:
             window.restore()
 
-        # Ask politely, then use the bounce, then wait and start again. The
-        # outer loop is the patient part: whatever is holding the foreground
-        # usually lets go within a few seconds.
         deadline = time.time() + max(0.0, patience)
         announced = False
         while True:
@@ -240,8 +157,6 @@ def focus_window(sb, patience: float = 6.0) -> bool:
                 )
             time.sleep(0.5)
             try:
-                # Re-find it: a window that was closed and reopened underneath
-                # us leaves a handle that can never become active.
                 refreshed = _matching_windows(title) or _browser_windows()
                 if refreshed:
                     window = refreshed[0]
@@ -251,15 +166,11 @@ def focus_window(sb, patience: float = 6.0) -> bool:
         LOG.debug("Browser window would not come to the front")
         return False
     except Exception as exc:
-        # Anything else here means we cannot be sure what is in front, and the
-        # caller must refuse rather than type the lead's SSN into whatever
-        # window that turns out to be.
         LOG.debug("Could not focus the browser window: %s", exc)
         return False
 
 
 def _try_activate(window) -> bool:
-    """One round of asking a window to come forward. True if it did."""
     try:
         if window.isActive:
             return True
@@ -271,17 +182,6 @@ def _try_activate(window) -> bool:
             try:
                 window.activate()
             except Exception as exc:
-                # Do not believe this exception. pygetwindow calls
-                # SetForegroundWindow and then raises from ctypes.WinError()
-                # without first checking whether it actually failed -- and on
-                # success the last error code is 0, so the exception message
-                # is the words "The operation completed successfully".
-                #
-                # Trusting it cost this project the entire --real-input
-                # feature: focus_window returned False every time, every real
-                # click and keystroke fell back to synthetic input, and the
-                # run logged "using synthetic input" while appearing to be
-                # doing the opposite. Check the window instead of the error.
                 LOG.debug("activate() reported %r; checking the window itself", exc)
 
             time.sleep(random.uniform(0.12, 0.3))
@@ -292,9 +192,6 @@ def _try_activate(window) -> bool:
                 pass
 
             if attempt == 0:
-                # Windows refuses the foreground to a process that does not
-                # already own it. Bouncing the window through minimize and
-                # back is the long-standing way to claim it anyway.
                 try:
                     window.minimize()
                     time.sleep(0.15)
@@ -308,13 +205,6 @@ def _try_activate(window) -> bool:
 
 
 def _park_pointer_over_document(sb, box: dict) -> bool:
-    """Put the cursor over the middle of the document about to be scrolled.
-
-    Uses the same origin the clicks use, so inside the enrollment frame it
-    lands inside the frame rather than on the page around it. Best-effort: a
-    scroll aimed at the wrong document is better than no scroll at all, and
-    the caller's later checks still have to pass.
-    """
     global _expected_pos
 
     origin = _viewport_origin(sb)
@@ -327,8 +217,6 @@ def _park_pointer_over_document(sb, box: dict) -> bool:
         if abs(current[0] - centre_x) < 40 and abs(current[1] - centre_y) < 40:
             return True
         pyautogui.moveTo(int(centre_x), int(centre_y), duration=random.uniform(0.1, 0.25))
-        # Record it, or the next action sees the pointer somewhere it did not
-        # put it and reports the run's own move as a person taking the mouse.
         _expected_pos = (int(centre_x), int(centre_y))
         time.sleep(random.uniform(0.04, 0.12))
         return True
@@ -338,24 +226,6 @@ def _park_pointer_over_document(sb, box: dict) -> bool:
 
 
 def scroll_to(sb, element, cfg) -> bool:
-    """Bring an element into view with the real wheel rather than a script.
-
-    `scrollIntoView` moves the page instantly and leaves no wheel events. A
-    sensor watching scroll behaviour sees the jump and nothing that caused it.
-
-    The pointer is parked over the document being scrolled first, and that is
-    not tidiness. The operating system delivers a wheel event to whatever is
-    under the cursor, so wheeling while the pointer sits outside the
-    enrollment frame scrolls the *outer* page instead -- which moves the frame
-    and quietly invalidates the offset real clicks are aimed with.
-
-    That failure is invisible to every check downstream, because they all
-    convert through the same offset and so agree with each other: the hit test
-    passes, `still_on_target` passes, the run logs "clicked with the real
-    mouse", and the form never moves because the click landed somewhere else.
-    Measured on step 6 -- a fully valid form, an enabled Continue, a reported
-    successful click, and ninety seconds of nothing.
-    """
     if not AVAILABLE:
         return False
     try:
@@ -367,7 +237,6 @@ def scroll_to(sb, element, cfg) -> bool:
         if not box:
             return False
 
-        # How far off centre it is, in notches. Chrome scrolls ~100px a notch.
         offset = box["top"] - box["h"] / 2
         notches = round(offset / 100)
         if abs(notches) < 1:
@@ -386,60 +255,26 @@ def scroll_to(sb, element, cfg) -> bool:
 
 
 def reading_pause(cfg) -> None:
-    """Pause the way someone does when a new screen appears.
-
-    People do not act the instant a page paints; they look at it first. Each
-    form screen here is filled within a second of rendering otherwise, which is
-    a timing signature no person produces.
-    """
     if not AVAILABLE:
         return
     time.sleep(random.uniform(0.6, 2.2))
 
 
-# Where the enrollment iframe sits, measured from the top document while the
-# driver was still in it. None means "not in a frame, measure directly".
-#
-# This exists because _VIEWPORT_ORIGIN_JS cannot be trusted inside a frame:
-# `window.outerWidth/outerHeight` there are the *top-level window's*, while
-# `innerWidth/innerHeight` are the *frame's*, so the formula subtracts one
-# window's chrome from another window's viewport. This frame is taller than
-# the screen, which made the result wildly negative -- every real click on
-# steps 5 to 10 was aimed at a point well off the monitor, "succeeded", and
-# did nothing. Because the hit test ran in the same frame coordinates, it
-# agreed with the bad point and reported the target was there.
 _frame_origin: dict | None = None
 
 
 def set_frame_origin(data: dict | None) -> None:
-    """Record the frame's position, measured from the top document."""
     global _frame_origin
     _frame_origin = data
 
 
 def reset_for_new_session() -> None:
-    """Forget everything measured against the browser that has just closed.
-
-    This module keeps two pieces of state that describe *a* browser: where the
-    enrollment frame sits inside the window, and where this module last left
-    the pointer. Both are module-level, so without this they survive into the
-    next lead's browser -- a different window, in a different place, with no
-    frame open yet.
-
-    The consequence was precise and repeatable. Lead one entered the frame and
-    recorded its offset; lead two then started on the public pages with that
-    offset still in force, so every screen coordinate was computed as though
-    a frame were open. The Apply Now button came out somewhere off the
-    viewport and was refused as unreachable -- on the second lead of every
-    run, never the first.
-    """
     global _frame_origin, _expected_pos
     _frame_origin = None
     _expected_pos = None
 
 
 def _viewport_origin(sb) -> dict | None:
-    """The screen origin of the top-level viewport, plus the frame's offset in it."""
     if _frame_origin:
         return dict(_frame_origin)
     try:
@@ -454,13 +289,10 @@ def _viewport_origin(sb) -> dict | None:
     return origin
 
 
-# Why the last aim was refused, so the caller can say which of the five
-# reasons fired instead of printing one generic sentence for all of them.
 _last_refusal: str = ""
 
 
 def last_refusal() -> str:
-    """Why the most recent screen_point returned None."""
     return _last_refusal or "could not work out where the element is on screen"
 
 
@@ -471,11 +303,6 @@ def _refuse(reason: str) -> None:
 
 
 def screen_point(sb, element) -> tuple[int, int] | None:
-    """Where to aim on the physical screen for this element, or None.
-
-    Returns a point somewhere inside the element rather than dead centre --
-    people do not click the exact middle of a button every time.
-    """
     try:
         origin = _viewport_origin(sb)
         box = sb.execute_script(_ELEMENT_BOX_JS, element)
@@ -490,21 +317,6 @@ def screen_point(sb, element) -> tuple[int, int] | None:
         _refuse("it has no width or height, so it is not laid out")
         return None
 
-    # Aim at the part of the element that is actually on screen.
-    #
-    # This used to bounds-check the element's *top-left corner* and refuse
-    # anything outside the viewport. Two things were wrong with that. A tall
-    # element scrolled so its top sits just above the fold has a negative
-    # `top` while most of it is plainly visible and clickable -- refused. And
-    # the corner is not where the click goes anyway: the aim point is the
-    # centre, so the check was answering a question nobody asked.
-    #
-    # Measured: the Apply Now button failed this check on every lead after
-    # the window was resized, because a shorter viewport put its top below
-    # the fold, and the run reported "could not work out where the element
-    # is on screen" for a button sitting in plain view.
-    #
-    # So: intersect the element with the viewport, and aim inside that.
     left = box["x"] + origin["fx"]
     top = box["y"] + origin["fy"]
     right = left + box["w"]
@@ -518,8 +330,6 @@ def screen_point(sb, element) -> tuple[int, int] | None:
     visible_w = visible_right - visible_left
     visible_h = visible_bottom - visible_top
 
-    # A few pixels is not something a person can reliably hit, and neither
-    # can this -- refuse rather than clip the edge of a control.
     if visible_w < 4 or visible_h < 4:
         _refuse(
             f"only {max(visible_w, 0):.0f}x{max(visible_h, 0):.0f} px of it is "
@@ -527,14 +337,12 @@ def screen_point(sb, element) -> tuple[int, int] | None:
         )
         return None
 
-    # Stay inside the middle 60% of the visible part so a near-miss still lands.
     jitter_x = (random.random() - 0.5) * visible_w * 0.6
     jitter_y = (random.random() - 0.5) * visible_h * 0.6
 
     viewport_x = visible_left + visible_w / 2 + jitter_x - origin["fx"]
     viewport_y = visible_top + visible_h / 2 + jitter_y - origin["fy"]
 
-    # Refuse the click rather than land it on whatever is covering the target.
     try:
         hit = sb.execute_script(_HIT_TEST_JS, element, viewport_x, viewport_y) or {}
     except Exception as exc:
@@ -548,16 +356,11 @@ def screen_point(sb, element) -> tuple[int, int] | None:
         )
         return None
 
-    # The hit test above used document-relative coordinates, which is what
-    # elementFromPoint wants; the screen point needs the frame offset added.
     screen = (
         int(origin["x"] + origin["fx"] + viewport_x),
         int(origin["y"] + origin["fy"] + viewport_y),
     )
 
-    # Every check from here on converts through this same origin, so they all
-    # agree with each other whether or not it is right. When the aim is wrong
-    # the only evidence is the numbers themselves, so record them.
     LOG.debug(
         "aim: doc=(%.0f,%.0f) box=(%.0f,%.0f %.0fx%.0f) "
         "origin=(%.0f,%.0f) frame=(%.0f,%.0f) viewport=%sx%s -> screen=%s",
@@ -569,19 +372,10 @@ def screen_point(sb, element) -> tuple[int, int] | None:
 
 
 def still_on_target(sb, element, point: tuple[int, int]) -> bool:
-    """Is the element still under the cursor, now that it has arrived?
-
-    The hit test in `screen_point` happens before the pointer starts moving,
-    and the walk there takes a moment during which lazy images, banners and
-    late fonts can reflow the page. Checking once more at the final position
-    is what separates "clicked the button" from "clicked where the button was".
-    """
     try:
         origin = _viewport_origin(sb)
         if not origin:
             return False
-        # Back into the coordinates elementFromPoint expects: strip the screen
-        # origin and the frame's offset, leaving a point inside this document.
         hit = sb.execute_script(
             _HIT_TEST_JS,
             element,
@@ -598,30 +392,12 @@ def still_on_target(sb, element, point: tuple[int, int]) -> bool:
     return True
 
 
-# Where this module last left the cursor. Anything else is somebody's hand.
 _expected_pos: tuple[int, int] | None = None
 
-# How far the cursor may sit from where we left it before we call it a person.
-# A few pixels of slack: some mice report sub-pixel drift when idle.
 _HAND_TOLERANCE = 12
 
 
 def yield_to_user(cfg, what: str = "") -> bool:
-    """If somebody has taken the mouse, wait for them to finish.
-
-    Real input drives the one cursor this machine has, so the moment a person
-    touches it there are two things steering and the run's next click lands
-    wherever the hand left the pointer. That is not hypothetical: it is what
-    turned a run into "clicked Continue but the screen never changed" -- a
-    click delivered to empty page, reported as a mystery.
-
-    Rather than fight for the cursor, notice and wait. The run pauses while
-    the mouse is moving, resumes once it has been still for a moment, and the
-    caller re-aims afterwards -- so an accidental nudge costs a few seconds
-    instead of the lead.
-
-    Returns whether a person had in fact taken over.
-    """
     if not AVAILABLE or _expected_pos is None:
         return False
 
@@ -641,8 +417,6 @@ def yield_to_user(cfg, what: str = "") -> bool:
         f" ({what})" if what else "",
     )
 
-    # Wait for the cursor to stop moving, then a beat longer in case they are
-    # mid-gesture. Capped so an abandoned machine cannot stall a batch.
     deadline = time.time() + 120
     last = here
     still_since = None
@@ -665,11 +439,9 @@ def yield_to_user(cfg, what: str = "") -> bool:
 
 
 def move_to(point: tuple[int, int], cfg) -> bool:
-    """Walk the real cursor to a point along a curved, uneven path."""
     if not AVAILABLE:
         return False
 
-    # Never wrestle a person for the pointer.
     yield_to_user(cfg, "before moving")
 
     global _expected_pos
@@ -678,8 +450,6 @@ def move_to(point: tuple[int, int], cfg) -> bool:
         target_x, target_y = point
 
         steps = max(6, cfg.mouse_steps)
-        # A bowed path rather than a straight line: the control point sits off
-        # to one side, so the cursor arcs the way a hand does.
         bow_x = (random.random() - 0.5) * 160
         bow_y = (random.random() - 0.5) * 160
         control_x = (start[0] + target_x) / 2 + bow_x
@@ -687,7 +457,6 @@ def move_to(point: tuple[int, int], cfg) -> bool:
 
         for index in range(1, steps + 1):
             t = index / steps
-            # Ease in and out, so it starts slowly, runs, and settles.
             eased = t * t * (3 - 2 * t)
             inv = 1 - eased
             x = inv * inv * start[0] + 2 * inv * eased * control_x + eased * eased * target_x
@@ -695,7 +464,6 @@ def move_to(point: tuple[int, int], cfg) -> bool:
             pyautogui.moveTo(int(x), int(y), duration=0, _pause=False)
             time.sleep(random.uniform(0.006, 0.02))
 
-        # A small overshoot and correction, which is what hands actually do.
         if random.random() < 0.35:
             pyautogui.moveTo(
                 target_x + random.randint(-6, 6),
@@ -714,20 +482,16 @@ def move_to(point: tuple[int, int], cfg) -> bool:
 
 
 def click(cfg) -> bool:
-    """Press and release where the cursor already is."""
     if not AVAILABLE:
         return False
 
-    # A click is the one action that cannot be taken back, so refuse to make
-    # it if the pointer is no longer where this module put it. The caller
-    # re-aims and tries again rather than clicking whatever is under a hand.
     if yield_to_user(cfg, "before clicking"):
         LOG.info("Not clicking where the pointer was left; re-aiming first")
         return False
 
     try:
         pyautogui.mouseDown(_pause=False)
-        time.sleep(random.uniform(0.05, 0.13))  # how long a real press lasts
+        time.sleep(random.uniform(0.05, 0.13))
         pyautogui.mouseUp(_pause=False)
         return True
     except Exception as exc:
@@ -736,13 +500,9 @@ def click(cfg) -> bool:
 
 
 def type_text(text: str, cfg) -> bool:
-    """Type on the real keyboard, one key at a time, at a person's pace."""
     if not AVAILABLE:
         return False
 
-    # Typing goes to whatever holds focus. If a person has just clicked
-    # somewhere else, these keystrokes are the lead's details going into
-    # their window, so wait rather than spray them.
     yield_to_user(cfg, "before typing")
 
     low, high = cfg.type_delay
@@ -750,7 +510,6 @@ def type_text(text: str, cfg) -> bool:
         for index, char in enumerate(str(text)):
             pyautogui.write(char, _pause=False)
             time.sleep(random.uniform(low, high))
-            # The occasional longer beat, the way real typing stutters.
             if index and random.random() < 0.07:
                 time.sleep(random.uniform(0.2, 0.55))
         return True
@@ -760,7 +519,6 @@ def type_text(text: str, cfg) -> bool:
 
 
 def clear_field(cfg) -> bool:
-    """Select all and delete, on the real keyboard."""
     if not AVAILABLE:
         return False
     try:
@@ -775,11 +533,6 @@ def clear_field(cfg) -> bool:
 
 
 def idle_wander(cfg) -> None:
-    """Drift the cursor a little while nothing is happening.
-
-    A pointer that teleports between fields and is otherwise perfectly still
-    is its own signal. This is cheap and only runs between actions.
-    """
     if not AVAILABLE or random.random() > 0.3:
         return
 
@@ -790,10 +543,6 @@ def idle_wander(cfg) -> None:
             x, y = x + random.randint(-40, 40), y + random.randint(-30, 30)
             pyautogui.moveTo(x, y, duration=0, _pause=False)
             time.sleep(random.uniform(0.02, 0.07))
-        # Record where this left the cursor. Without it the next action sees
-        # the pointer somewhere it did not put it and reports the run's own
-        # wandering as a person's hand -- which is exactly what happened:
-        # every action after a wander paused for a mouse nobody had touched.
         _expected_pos = (int(x), int(y))
     except Exception:
         pass

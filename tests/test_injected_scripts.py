@@ -1,26 +1,3 @@
-"""Every script this project injects has to at least parse.
-
-These modules are mostly JavaScript held in Python strings, and every test
-that drives a handler stubs `execute_script` -- so a broken script passes the
-whole suite and fails only against the live site, on a lead.
-
-That is not hypothetical. Two were shipped in one edit:
-
-    let text = ...;        // inserted
-    const text = ...;      // already there
-
-a redeclaration, which is a SyntaxError that would have killed the
-qualifying-programme screen outright; and `text: text.slice(0, 160)` in a
-script where nothing declared `text`, a ReferenceError at the moment a
-certification was being read.
-
-`node --check` catches the first class. The second needs the script actually
-run, so each one is executed here against a small DOM stub -- not to check
-what it returns, only that it can run at all.
-
-    python -m pytest tests -q
-"""
-
 import json
 import shutil
 import subprocess
@@ -40,7 +17,6 @@ MODULES = (step10, page_utils)
 
 
 def _scripts():
-    """Every `_*_JS` constant in the modules that inject them."""
     for module in MODULES:
         for name in dir(module):
             if not name.endswith("_JS"):
@@ -51,7 +27,6 @@ def _scripts():
 
 
 def test_there_are_scripts_to_check():
-    """A rename that emptied this would otherwise make the suite pass loudly."""
     found = list(_scripts())
     assert len(found) >= 8, [name for name, _ in found]
 
@@ -59,7 +34,6 @@ def test_there_are_scripts_to_check():
 @pytest.mark.skipif(NODE is None, reason="node is not installed")
 @pytest.mark.parametrize("name,body", list(_scripts()), ids=lambda v: v if isinstance(v, str) and "." in v else "")
 def test_each_injected_script_parses(name, body):
-    """Wrapped the way the browser runs it: a function body, with `arguments`."""
     wrapped = "(function(){\n" + body + "\n});"
     proc = subprocess.run(
         [NODE, "--check", "-"], input=wrapped, capture_output=True, text=True
@@ -70,13 +44,6 @@ def test_each_injected_script_parses(name, body):
 @pytest.mark.skipif(NODE is None, reason="node is not installed")
 @pytest.mark.parametrize("name,body", list(_scripts()), ids=lambda v: v if isinstance(v, str) and "." in v else "")
 def test_each_injected_script_runs(name, body):
-    """Against a stub DOM that answers everything with an empty result.
-
-    This is not asserting what a script returns -- that depends on a real
-    page. It is asserting the script can be entered at all: an identifier
-    that nothing declares, a call on a missing global, or a typo in a
-    property chain shows up here rather than on a lead.
-    """
     harness = r"""
 const el = new Proxy(function(){}, {
   get(_, k) {

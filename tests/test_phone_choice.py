@@ -1,14 +1,3 @@
-"""Tests for the "Choose your phone" screen.
-
-The selector matters more than usual here. Both options are radios the site
-gives the *same* id -- `id="deviceType"` on each -- so `label[for=]` cannot
-tell them apart and the usual radio machinery has nothing unique to key on.
-What distinguishes them is `value`, and what is actually on screen is the
-painted `div.b-input` sitting immediately after each input.
-
-    python -m pytest tests -q
-"""
-
 import sys
 from pathlib import Path
 
@@ -19,8 +8,6 @@ from aw_bot.steps import step_10_classify as step10  # noqa: E402
 
 
 class _Lead:
-    """Just the name fields the signature screen reads."""
-
     first_name = "LINDA"
     last_name = "JOHNSON"
 
@@ -53,7 +40,6 @@ def test_the_free_phone_is_the_configured_choice():
 
 
 def test_the_selector_targets_the_painted_control_by_value():
-    """Not by id -- the site puts the same id on both options."""
     selector = step10._PHONE_SELECTOR.format(value="free")
     assert '[value="free"]' in selector
     assert "div.b-input" in selector
@@ -66,8 +52,6 @@ def test_the_selector_distinguishes_the_two_options():
     assert free != byod
 
 
-# -- refusing rather than guessing -------------------------------------------
-
 class _Sb:
     def __init__(self, found=True, checked_after=True):
         self.found = found
@@ -79,18 +63,15 @@ class _Sb:
         return {
             "offered": ["byod", "free"] if self.found else ["byod"],
             "found": self.found,
-            # First read is the before-state, later reads the after-state.
             "checked": self.checked_after if self.reads > 1 else False,
         }
 
 
 def test_a_missing_option_stops_the_lead():
-    """Picking whichever radio happens to be there is not a substitute."""
     assert step10._choose_phone(_Sb(found=False), RunConfig(), _LEAD, Path(".")) is False
 
 
 def test_a_selection_that_does_not_register_stops_the_lead(monkeypatch):
-    """Continuing would leave the application with no device chosen."""
     monkeypatch.setattr(step10, "human_click", lambda *a, **k: None)
     monkeypatch.setattr(step10, "pause", lambda *a, **k: None)
     monkeypatch.setattr(step10, "capture", lambda *a, **k: {})

@@ -1,17 +1,8 @@
-"""Per-step evidence: screenshot, saved HTML, and an inventory of the
-interactive elements actually on the page.
-
-The inventory is the useful one while we build page by page -- it tells us the
-real ids/names/labels to target on the next page instead of guessing.
-"""
-
 import json
 from pathlib import Path
 
 from .logs import LOG
 
-# Pulls every control a form step could care about, with the attributes we'd
-# use to build a selector. Trimmed to visible elements only.
 _INVENTORY_JS = r"""
 const visible = (el) => {
   const r = el.getBoundingClientRect();
@@ -53,7 +44,6 @@ return out;
 
 
 def capture(sb, run_dir: Path, step_name: str, save: bool = True) -> dict:
-    """Screenshot + HTML + element inventory for one step. Never fatal."""
     inventory = {}
     if not save:
         return inventory
@@ -62,7 +52,7 @@ def capture(sb, run_dir: Path, step_name: str, save: bool = True) -> dict:
 
     try:
         sb.save_screenshot(f"{step_name}.png", folder=str(run_dir))
-    except Exception as exc:  # a missing screenshot must not fail the run
+    except Exception as exc:
         LOG.warning("Screenshot failed for %s: %s", step_name, exc)
 
     try:

@@ -1,0 +1,71 @@
+.favicon,
+.geo-tag,
+.svg-icon,
+.post-tag,
+.bg-white,
+.bg-orange-400,
+.answer-hyperlink,
+.h\:bg-white:hover,
+.f\:bg-white:focus,
+.js-consent-banner,
+.answered-accepted,
+.question-hyperlink,
+.s-btn.s-btn__filled,
+.s-btn.s-btn__outlined,
+.h\:bg-orange-400:hover,
+.f\:bg-orange-400:focus,
+.answer-hyperlink:visited,
+.question-hyperlink:visited,
+.top-bar .-marketing-link.is-selected,
+.container .chosen-choices .search-choice,
+.s-post-summary .s-post-summary--content-title a,
+.container .chosen-container-multi .chosen-choices li.search-choice,
+.s-post-summary .s-post-summary--stats-item.has-answers.has-accepted-answer {
+  filter: invert(100%) !important;
+  -webkit-filter: invert(100%) !important;
+}
+
+#onetrust-consent-sdk #onetrust-banner-sdk {
+  filter: invert(100%) !important;
+  -webkit-filter: invert(100%) !important;
+}
+
+.svg-icon,
+.svg-spot,
+.s-btn__filled,
+.s-btn__primary,
+.grid--cell.s-btn.s-btn__primary {
+  filter: invert(0) !important;
+  -webkit-filter: invert(0) !important;
+}
+
+.site-footer {
+  background-color: #e6e6e6 !important;
+}
+
+.post-tag {
+  background-color: #1b1b1b !important;
+}
+
+.product-hero-background {
+  opacity: 0.5;
+}
+
+.s-btn {
+  opacity: 0.7;
+}
+
+.s-post-summary .s-post-summary--meta-tags > a,
+.s-post-summary .s-post-summary--meta-tags .s-tag,
+.s-post-summary .s-post-summary--meta-tags .post-tag,
+.s-post-summary .s-post-summary--meta-tags > ul > li > a {
+  color: #cfcfcf !important;
+}
+
+.s-btn.s-btn__outlined {
+  background-color: #d5d5d5 !important;
+}
+
+.user-info .user-action-time a {
+  color: #a16c1b !important;
+}

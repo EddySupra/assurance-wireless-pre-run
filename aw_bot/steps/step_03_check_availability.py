@@ -1,12 +1,3 @@
-"""Step 3 -- enter the lead's ZIP and email, then submit the availability check.
-
-First step that uses customer data. Only two of the lead's fields are needed
-here; the rest go in on the application pages after this.
-
-Submitting sends us to a per-state page chosen from the ZIP, which doubles as
-a check that the row's ZIP and State columns agree.
-"""
-
 from pathlib import Path
 
 from ..artifacts import capture
@@ -19,24 +10,17 @@ from ..page_utils import body_text, first_visible, normalize_path, settle, verif
 
 STEP_NAME = "step_03_check_availability"
 
-# Where a successful ZIP check lands: a per-state page whose slug starts with
-# the state name, e.g. .../states/california-lifeline-free-government-phone-service
 STATE_PAGE_PREFIX = "/lifeline-services/states/"
 
 ZIP_SELECTOR = 'input[name="zipInput"]'
 EMAIL_SELECTOR = 'input[name="emailInput"]'
 
-# The onclick handler is the most stable identifier on this button -- it's the
-# function that actually submits, so it outlives restyling and copy changes.
-# Text next, then the styling class. Deliberately NOT using fdprocessedid: a
-# form-filler extension injects that at runtime and it changes every load.
 SUBMIT_SELECTORS = (
     'button[onclick*="submitOE"]',
     'button:contains("Check Lifeline Availability")',
     "button.btn-info",
 )
 
-# Rough read on the outcome so the log says something useful either way.
 NEGATIVE_HINTS = (
     "not available",
     "isn't available",
@@ -57,7 +41,6 @@ POSITIVE_HINTS = (
 def check_availability(
     sb, cfg: RunConfig, lead: Lead, run_dir: Path, *, submit: bool = True
 ) -> dict:
-    """Fill ZIP + email and submit. With submit=False, stop before submitting."""
     LOG.info("Step 3: availability check for %s", lead.label)
 
     _fill(sb, ZIP_SELECTOR, lead.zip_code, "ZIP", cfg)
@@ -91,10 +74,6 @@ def check_availability(
 
 
 def _fill(sb, selector: str, value: str, label: str, cfg: RunConfig) -> None:
-    """Type a value and read it back, so a silently-rejected entry (input
-    masks, maxlength, a field that wasn't really ready) fails here rather
-    than three pages later.
-    """
     human_type(sb, selector, value, cfg)
 
     actual = sb.get_attribute(selector, "value") or ""
@@ -106,15 +85,12 @@ def _fill(sb, selector: str, value: str, label: str, cfg: RunConfig) -> None:
 
 
 def _await_response(sb, before_path: str, cfg: RunConfig) -> None:
-    """Give the submit a chance to navigate. It may instead answer in place,
-    so a URL that never changes is not treated as a failure.
-    """
     try:
         sb.wait_for_ready_state_complete(timeout=cfg.page_timeout)
     except Exception:
         pass
 
-    for _ in range(40):  # ~10s
+    for _ in range(40):
         if normalize_path(sb.get_current_url()) != before_path:
             LOG.info("Navigated to a new page after submit")
             return
@@ -124,12 +100,6 @@ def _await_response(sb, before_path: str, cfg: RunConfig) -> None:
 
 
 def _verify_state_page(sb, lead: Lead) -> None:
-    """The ZIP decides which state page we get, so the landing URL is a free
-    cross-check that the sheet's ZIP and State columns agree.
-
-    A mismatch fails the lead: an application whose ZIP and state disagree
-    gets rejected downstream anyway, and it's cheaper to catch it here.
-    """
     path = normalize_path(sb.get_current_url())
 
     if not path.startswith(STATE_PAGE_PREFIX):

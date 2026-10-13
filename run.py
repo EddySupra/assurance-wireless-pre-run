@@ -1,23 +1,10 @@
-"""Entry point.
-
-    python run.py --list-profiles         # GoLogin profiles on the account
-    python run.py --test-lead --dry-run   # fake lead, fills fields, submits nothing
-    python run.py --test-lead             # fake lead, submits for real
-    python run.py --row 2                 # one sheet row
-    python run.py                         # every lead in the sheet
-
-Browsers run as GoLogin (Orbita) profiles by default, so set GOLOGIN_TOKEN and
-GOLOGIN_PROFILE_ID in .env first (see .env.example). --backend switches back to
-the old SeleniumBase UC-mode Chrome.
-"""
-
 import argparse
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
 from aw_bot.browser import BACKENDS
-from aw_bot.config import START_URL, RunConfig
+from aw_bot.config import START_URL, RunConfig, keyed_extension
 from aw_bot.errors import AwBotError
 from aw_bot.gologin_backend import cleanup_disposable_profiles, list_profiles
 from aw_bot.logs import setup
@@ -26,7 +13,6 @@ from aw_bot.lead import sample_lead
 from aw_bot.runner import run_batch
 from aw_bot.sheets import completed_rows, load_leads
 
-# FlareSolverr integration
 from aw_bot.flaresolverr import (
     solve_cloudflare_challenge,
     inject_cookies_into_driver,
@@ -34,8 +20,6 @@ from aw_bot.flaresolverr import (
 )
 
 
-# Where --next remembers how far down the sheet testing has got. One line,
-# holding the last row number handed out.
 CURSOR_PATH = Path(__file__).resolve().parent / ".test_cursor"
 
 
@@ -47,12 +31,6 @@ def _read_cursor() -> int:
 
 
 def _record_cursor(lead) -> None:
-    """Mark a lead as used, the moment it is about to get a browser.
-
-    Only ever moves forward. With several workers the leads finish out of
-    order, and a cursor that could move backwards would re-offer an applicant
-    the host has already seen -- which is what makes it start refusing.
-    """
     row = lead.row_number or 0
     if row <= _read_cursor():
         return
@@ -63,21 +41,6 @@ def _record_cursor(lead) -> None:
 
 
 def _next_untested(leads: list, count: int = 1) -> list:
-    """The next `count` leads after the last one --next handed out.
-
-    Walking the sheet rather than re-running one row matters beyond tidiness:
-    the enrollment host starts refusing an applicant who is submitted
-    repeatedly, so a fresh lead per test is also what keeps the flow working.
-
-    A count above one is for the case that kept stopping these test runs
-    dead: the site validates the email address at the personal-info screen
-    and throws the lead out when it does not deliver, and this sheet is full
-    of addresses that do not. Handing out several leads lets the run walk
-    past those by itself instead of needing --next typed again for each one.
-
-    The cursor advances to the last lead handed out, not the last one that
-    worked, so a rejected applicant is never offered again on the next run.
-    """
     cursor = _read_cursor()
     remaining = [l for l in leads if (l.row_number or 0) > cursor]
 
@@ -90,13 +53,6 @@ def _next_untested(leads: list, count: int = 1) -> list:
         return []
 
     chosen = remaining[: max(1, count)]
-
-    # The cursor is NOT written here. It advances one lead at a time, as each
-    # one actually starts (see _record_cursor). Recording the whole batch up
-    # front looks equivalent and is not: a batch that stops early -- a crashed
-    # browser, a throttle, the first lead getting through -- would mark every
-    # lead it never reached as used, and `--next` would skip them for good.
-    # Measured: one dead chromedriver cost nineteen untried leads that way.
 
     if len(chosen) == 1:
         print(
@@ -194,11 +150,8 @@ def main() -> int:
         "--keep-extensions",
         action="store_true",
         help="start Orbita with its extensions enabled, the way GoLogin runs a "
-             "profile by hand. The run disables them by default because the "
-             "bundled ad blocker blocks Akamai's /akam/ sensor, which reads as "
-             "a bot -- but it also means the automated browser launches "
-             "differently from a manual one. Use it to test whether that "
-             "difference matters.",
+             "profile by hand. Already the default (GoLoginConfig."
+             "disable_extensions); kept so older commands still work.",
     )
     gologin.add_argument(
         "--keep-session",
@@ -249,7 +202,6 @@ def main() -> int:
         help="print the profiles on the account and exit (needs only a token)",
     )
 
-    # FlareSolverr argument group
     flaresolverr = parser.add_argument_group(
         "FlareSolverr",
         "Automatic Cloudflare challenge solving. Requires FlareSolverr running "
@@ -318,6 +270,14 @@ def main() -> int:
         "--profile-dir",
         metavar="PATH",
         help="reuse browser profiles under PATH so sessions persist between runs",
+    )
+    parser.add_argument(
+        "--extension",
+        action="append",
+        metavar="PATH",
+        help="also load the unpacked Chrome extension in PATH (the folder "
+             "holding manifest.json) for this run. Repeat for more than one. "
+             "To load one on every run, put it in EXTENSION_DIRS in .env.",
     )
     parser.add_argument(
         "--workers",
@@ -431,7 +391,6 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    # Handle --clear-cache flag early
     if args.clear_cache:
         cache = get_cookie_cache()
         cache.clear()
@@ -460,25 +419,15 @@ def main() -> int:
             p.strip() for p in args.gologin_profile.split(",") if p.strip()
         )
     cfg.gologin.random_profile = args.random_profile
-    # Both default on; these turn them off so a run can be made to match how
-    # GoLogin launches a profile by hand, which is the comparison that matters
-    # when the same profile succeeds manually and fails automated.
     if args.keep_extensions:
         cfg.gologin.disable_extensions = False
     if args.keep_session:
         cfg.gologin.fresh_session = False
-    # Only when actually asked for, either way round. Assigning the flag
-    # unconditionally is how the config default stopped meaning anything:
-    # `store_true` hands back False when the flag is absent, so a default of
-    # True was overwritten with False on every run that did not pass it, and
-    # fresh profiles silently never happened.
     if args.reuse_profiles:
         cfg.gologin.disposable_profiles = False
     elif args.new_profile_per_lead:
         cfg.gologin.disposable_profiles = True
     if args.proxy_type:
-        # "auto" is spelled as an empty string internally: that is what the
-        # GoLogin call treats as "pick whatever there is traffic for".
         cfg.gologin.proxy_type = "" if args.proxy_type == "auto" else args.proxy_type
     if args.proxy_country:
         cfg.gologin.proxy_country = args.proxy_country.strip().upper()
@@ -497,12 +446,15 @@ def main() -> int:
     elif args.profile_dir:
         cfg.browser_backend = "local-profile"
         cfg.profile_dir = Path(args.profile_dir)
+    if args.extension:
+        cfg.extension_dirs += tuple(
+            keyed_extension(Path(p).resolve()) for p in args.extension
+        )
     if args.sheet_key:
         cfg.sheet.spreadsheet_key = args.sheet_key
     if args.worksheet:
         cfg.sheet.worksheet_name = args.worksheet
 
-    # Configure FlareSolverr
     cfg.capture_browser_logs = args.capture_logs
     cfg.allow_third_party_storage = args.allow_third_party_storage
     cfg.trace_turnstile = args.trace_turnstile
@@ -520,7 +472,6 @@ def main() -> int:
     
     if args.use_flaresolverr:
         print("FlareSolverr enabled: will auto-solve Cloudflare challenges", file=sys.stderr)
-        # Disable manual challenge solving if FlareSolverr is on
         if cfg.solve_challenges:
             print("--solve-challenges disabled (FlareSolverr handles challenges automatically)", file=sys.stderr)
             cfg.solve_challenges = False
@@ -561,9 +512,6 @@ def main() -> int:
             leads = load_leads(cfg.sheet, only_row=args.row)
             if args.next:
                 leads = _next_untested(leads, args.next)
-                # Several leads here means "keep going until one gets
-                # somewhere", not "submit this many applications". The batch
-                # stops at the first lead that survives the email check.
                 cfg.stop_after_progress = args.next > 1
             if args.start_row:
                 leads = [l for l in leads if (l.row_number or 0) >= args.start_row]

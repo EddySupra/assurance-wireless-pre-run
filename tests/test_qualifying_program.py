@@ -1,15 +1,3 @@
-"""Tests for ticking the California LifeLine qualifying programme.
-
-This one asserts something about a real person -- which government assistance
-they are enrolled in, on their federal benefits application. So the behaviour
-worth pinning is not just that it ticks the right box, but that it refuses
-rather than improvises when it cannot: a programme it cannot find by name, or
-a tick that does not register, has to stop the lead rather than let the form
-be submitted claiming nothing or claiming the wrong thing.
-
-    python -m pytest tests -q
-"""
-
 import sys
 from pathlib import Path
 
@@ -20,8 +8,6 @@ from aw_bot.steps import step_10_classify as step10  # noqa: E402
 
 
 class _Lead:
-    """Just the name fields the signature screen reads."""
-
     first_name = "LINDA"
     last_name = "JOHNSON"
 
@@ -53,15 +39,10 @@ def test_other_screens_are_not_mistaken_for_it():
 
 
 def test_the_configured_programme_is_calfresh():
-    """Chosen deliberately, and constant because every lead qualifies this way."""
     assert "CalFresh" in RunConfig().application.qualifying_program
 
 
-# -- refusing rather than guessing -------------------------------------------
-
 class _Sb:
-    """Answers the two scripts _choose_program runs."""
-
     def __init__(self, found, checked_after=True):
         self.found = found
         self.checked_after = checked_after
@@ -76,13 +57,11 @@ class _Sb:
 
 
 def test_an_unmatched_programme_stops_the_lead(monkeypatch):
-    """The nearest option is not an acceptable substitute for the right one."""
     sb = _Sb({"options": ["Medicaid/Medi-Cal", "Supplemental Security Income (SSI)"]})
     assert step10._choose_program(sb, RunConfig(), _LEAD, Path(".")) is False
 
 
 def test_a_tick_that_does_not_register_stops_the_lead(monkeypatch):
-    """Otherwise the application goes in claiming no qualifying programme."""
     monkeypatch.setattr(step10, "human_click", lambda *a, **k: None)
     monkeypatch.setattr(step10, "pause", lambda *a, **k: None)
     monkeypatch.setattr(step10, "capture", lambda *a, **k: {})
@@ -125,7 +104,6 @@ def test_a_successful_tick_continues(monkeypatch):
 
 
 def test_an_already_ticked_programme_is_left_alone(monkeypatch):
-    """Clicking a ticked box would clear it."""
     monkeypatch.setattr(step10, "pause", lambda *a, **k: None)
     monkeypatch.setattr(step10, "capture", lambda *a, **k: {})
     monkeypatch.setattr(step10, "advance_screen", lambda *a, **k: None)

@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Dark Mode</title>
+    <link type="text/css" rel="stylesheet" href="options.css">
+    <link type="text/css" rel="stylesheet" href="explore/explore.css">
+    <link type="text/css" rel="stylesheet" href="resources/styles/toolbar.css">
+    <link type="text/css" rel="stylesheet" href="resources/styles/overlay.css">
+    <link type="text/css" rel="stylesheet" href="resources/styles/scrollbar.css">
+  </head>
+  <body>
+    <div id="explore"></div>
+    <div class="overlay">
+      <div class="container">
+        <div class="close" id="close-overlay" title="Close">
+          <svg width="10" height="10" viewBox="0 0 512 512">
+            <g transform="matrix(1.0842783,0,0,1.0842783,-18.118477,-24.53228)">
+              <rect width="499.08917" height="65.118034" x="112.26851" y="-28.276203" ry="0" transform="rotate(45)"/>
+              <rect width="499.08716" height="65.118034" x="-245.26077" y="329.25357" ry="0" transform="matrix(-0.70710678,0.70710678,0.70710678,0.70710678,0,0)"/>
+            </g>
+          </svg>        
+        </div>
+        <div class="items">
+          <table>
+            <tr>
+              <td class="header" colspan='3'>
+                <span class="title">Dark browsing pack</span>
+              </td>
+            </tr>
+            <tr>
+              <td id="dark-mode-item" title="Dark Mode - a global dark theme for the web">
+                <span class="status" title="Added to browser">
+                  <svg width="18" height="18" viewBox="0 0 32 32">
+                    <path d="M1 14 L5 10 L13 18 L27 4 L31 8 L13 26 z"/>
+                  </svg>
+                </span>
+                <span class="title">Dark Mode</span>
+              </td>
+              <td id="dark-new-tab-item" title="Dark New Tab - darkens the new tab page">
+                <span class="status"></span>
+                <span class="title">Dark New Tab</span>
+              </td>
+              <td id="dark-theme-item" title="Dark Theme - a simple and elegant dark theme">
+                <span class="status"></span>
+                <span class="title">Dark Theme</span>
+              </td>
+            </tr>
+            <tr>
+              <td class="footer" colspan='3'>
+                <span class="title"></span>
+              </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="toolbar">
+      <table>
+        <tr>
+          <td id="dark-browsing-pack" title="Dark browsing pack">
+            <svg width="14" height="14" viewBox="0 0 24 24">
+              <path d="M12.9,2.6l2.3,5c0.1,0.3,0.4,0.5,0.7,0.6l5.2,0.8C22,9,22.3,10,21.7,10.6l-3.8,3.9c-0.2,0.2-0.3,0.6-0.3,0.9 l0.9,5.4c0.1,0.8-0.7,1.5-1.4,1.1l-4.7-2.6c-0.3-0.2-0.6-0.2-0.9,0l-4.7,2.6c-0.7,0.4-1.6-0.2-1.4-1.1l0.9-5.4 c0.1-0.3-0.1-0.7-0.3-0.9l-3.8-3.9C1.7,10,2,9,2.8,8.9l5.2-0.8c0.3,0,0.6-0.3,0.7-0.6l2.3-5C11.5,1.8,12.5,1.8,12.9,2.6z"/>
+            </svg>
+          </td>
+        </tr>
+        <tr>
+          <td id="reset-dark-mode" title="Reset the extension to factory settings">
+            <svg width="14" height="14" viewBox="0 0 48 48">
+              <path d="M 9.8212753,13.365952 H 34.12766 V 20.455317 L 44.25532,10.327657 34.12766,0.199997 V 7.2893585 H 3.744681 V 22.987232 H 9.8212753 Z"/>
+              <path d="M 38.178723,34.634044 13.872338,34.634037 13.872339,27.544678 3.744681,37.672337 13.872339,47.8 13.87234,40.710639 44.255317,40.710637 44.255318,25.012763 38.178724,25.012764 Z"/>
+            </svg>
+          </td>
+        </tr>
+        <tr>
+          <td id="test-dark-mode" title="Test dark styles or your custom dark theme">
+            <svg width="14" height="14" viewBox="0 0 32 32">
+              <path d="M1 14 L5 10 L13 18 L27 4 L31 8 L13 26 z"/>
+            </svg>
+          </td>
+        </tr>
+        <tr>
+          <td id="youtube-tutorial" title="See tutorial on YouTube">
+            <svg width="14" height="14" viewBox="0 0 24 24">
+              <path d="M 4.0898438,2.2384375 C 2.2603414,2.2384375 0.21480069,3.812498 0.21484375,5.642 L 0.21496088,10.618 C 0.21500394,12.447501 2.2604585,14.021562 4.0899609,14.021562 H 11.920039 C 13.749542,14.021562 15.795082,12.447501 15.795039,10.618 L 15.794922,5.642 C 15.794879,3.812498 13.749425,2.2384375 11.919922,2.2384375 Z M 6.1955233,5.3359375 10.332242,7.8066406 C 10.764925,8.0521486 10.673494,8.4409148 10.377164,8.5859375 L 6.1154452,11.123047 C 5.7619228,11.278428 5.640275,11.007097 5.6408358,10.806641 V 5.6542969 C 5.6340504,5.2082973 6.0075973,5.2139695 6.1955233,5.3359375 Z" transform="scale(1.5)"/>
+            </svg>
+          </td>
+        </tr>
+        <tr>
+          <td id="open-support-page" title="Open support page">
+            <svg width="14" height="14" viewBox="0 0 1792 1792">
+              <path d="M1088 1256v240q0 16-12 28t-28 12h-240q-16 0-28-12t-12-28v-240q0-16 12-28t28-12h240q16 0 28 12t12 28zm316-600q0 54-15.5 101t-35 76.5-55 59.5-57.5 43.5-61 35.5q-41 23-68.5 65t-27.5 67q0 17-12 32.5t-28 15.5h-240q-15 0-25.5-18.5t-10.5-37.5v-45q0-83 65-156.5t143-108.5q59-27 84-56t25-76q0-42-46.5-74t-107.5-32q-65 0-108 29-35 25-107 115-13 16-31 16-12 0-25-8l-164-125q-13-10-15.5-25t5.5-28q160-266 464-266 80 0 161 31t146 83 106 127.5 41 158.5z"/>
+            </svg>            
+          </td>
+        </tr>
+        <tr>
+          <td id="make-a-donation" title="Make a donation">
+            <svg width="14" height="14" viewBox="-0.709 -11.555 141.732 141.732">
+              <path d="M140.314,37.654C140.314,16.858,123.402,0,102.537,0c-13.744,0-25.77,7.317-32.379,18.255C63.549,7.317,51.521,0,37.777,0 C16.912,0,0,16.858,0,37.654c0,10.821,4.588,20.57,11.922,27.438h-0.01l54.084,51.584c0.992,1.188,2.48,1.945,4.148,1.945 c1.545,0,2.936-0.653,3.92-1.696l54.346-51.833h-0.016C135.729,58.225,140.314,48.476,140.314,37.654"/>
+            </svg>
+          </td>
+        </tr>
+      </table>
+    </div>
+    <details class="section-1">
+      <summary>I. Classic Themes</summary>
+      <div class="themes">
+        <table class="section">
+          <tr>
+            <td>
+              <table class="options">
+                <tr><td><label class="comment">A. General dark styles (class a)</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_1">Dark mode - simple dark - I</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_39">Dark mode - simple dark - II</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_40">Dark mode - simple dark - III</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_2">Dark mode - midnight dark</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_3">Dark mode - sharp dark</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_4">Dark mode - pitch dark</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_5">Dark mode - texture dark</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_6">Dark mode - amoled dark</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_7">Dark mode - ice dark</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_8">Dark mode - blue dark</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_9">Dark mode - coffee dark</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_10">Dark mode - twilight dark</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_11">Dark mode - blue dark</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_12">Dark mode - blue dark</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_13">Dark mode - blue dark</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_14">Dark mode - owl dark</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_17">Dark mode - yellow dark</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_18">Dark mode - orange dark</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_20">Dark mode - classy dark</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_22">Dark mode - grey dark</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_23">Dark mode - pink dark</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_24">Dark mode - nicer dark</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_30">Dark mode - transparent dark</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_32">Dark mode - pitch dark</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_33">Dark mode - purple dark</label></td></tr>
+                <tr class="hidden"><td><label><input type="checkbox"></label></td></tr>
+              </table>
+            </td>
+            <td>
+              <table class="options">
+                <tr><td><label class="comment">B. General dark styles (class b)</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_15">Dark invert #1</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_16">Dark invert #2</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_19">Dark invert #3</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_21">Dark invert #4</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_25">Dark invert #5</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_26">Dark invert #6</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_27">Dark invert #7</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_28">Dark invert #8</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_29">Dark invert #9</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_31">Dark invert #10</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_34">Dark invert #11</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_35">Dark invert #12</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_36">Dark invert #13</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dark_37">Dark invert #14</label></td></tr>
+                <tr class="hidden"><td><label><input type="checkbox"></label></td></tr>
+              </table>
+            </td>
+            <td>
+              <table class="options">
+                <tr><td><label class="comment">C. Custom dark styles</label></td></tr>
+                <tr><td><label><input type="checkbox" id="bing">Dark theme for Bing</label></td></tr>
+                <tr><td><label><input type="checkbox" id="ebay">Dark theme for Ebay</label></td></tr>
+                <tr><td><label><input type="checkbox" id="gmail">Dark theme for Gmail</label></td></tr>
+                <tr><td><label><input type="checkbox" id="twitter">Dark theme for Twitter</label></td></tr>
+                <tr><td><label><input type="checkbox" id="reddit">Dark theme for Reddit</label></td></tr>
+                <tr><td><label><input type="checkbox" id="yahoo">Dark theme for Yahoo</label></td></tr>
+                <tr><td><label><input type="checkbox" id="twitch">Dark theme for Twitch</label></td></tr>
+                <tr><td><label><input type="checkbox" id="github">Dark theme for GitHub</label></td></tr>
+                <tr><td><label><input type="checkbox" id="tumblr">Dark theme for Tumblr</label></td></tr>
+                <tr><td><label><input type="checkbox" id="yandex">Dark theme for Yandex</label></td></tr>
+                <tr><td><label><input type="checkbox" id="amazon">Dark theme for Amazon</label></td></tr>
+                <tr><td><label><input type="checkbox" id="dropbox">Dark theme for Dropbox</label></td></tr>
+                <tr><td><label><input type="checkbox" id="youtube">Dark theme for YouTube</label></td></tr>
+                <tr><td><label><input type="checkbox" id="telegram">Dark theme for Telegram</label></td></tr>
+                <tr><td><label><input type="checkbox" id="facebook">Dark theme for Facebook</label></td></tr>
+                <tr><td><label><input type="checkbox" id="wikipedia">Dark theme for Wikipedia</label></td></tr>
+                <tr><td><label><input type="checkbox" id="instagram">Dark theme for Instagram</label></td></tr>
+                <tr><td><label><input type="checkbox" id="whatsapp">Dark theme for WhatsApp</label></td></tr>
+                <tr><td><label><input type="checkbox" id="w3schools">Dark theme for W3Schools</label></td></tr>
+                <tr><td><label><input type="checkbox" id="play">Dark theme for Google Play</label></td></tr>
+                <tr><td><label><input type="checkbox" id="docs">Dark theme for Google Docs</label></td></tr>
+                <tr><td><label><input type="checkbox" id="drive">Dark theme for Google Drive</label></td></tr>
+                <tr><td><label><input type="checkbox" id="sites">Dark theme for Google Sites</label></td></tr>
+                <tr><td><label><input type="checkbox" id="maps">Dark theme for Google Maps</label></td></tr>
+                <tr><td><label><input type="checkbox" id="duckduckgo">Dark theme for DuckDuckGo</label></td></tr>
+                <tr><td><label><input type="checkbox" id="google">Dark theme for Google Search</label></td></tr>
+                <tr><td><label><input type="checkbox" id="stackoverflow">Dark theme for Stack Overflow</label></td></tr>
+                <tr><td><label><input type="checkbox" id="support">Dark theme for Google Support</label></td></tr>
+                <tr><td><label><input type="checkbox" id="calendar">Dark theme for Google Calendar</label></td></tr>
+                <tr><td><label><input type="checkbox" id="translate">Dark theme for Google Translate</label></td></tr>
+                <tr><td><label><input type="checkbox" id="accounts">Dark theme for Google Accounts</label></td></tr>
+                <tr><td><label><input type="checkbox" id="myaccount">Dark theme for Google MyAccount</label></td></tr>
+                <tr class="hidden"><td><label><input type="checkbox"></label></td></tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </div>
+      <div class="superscript">
+        <label>(✶) Please see option IV.l for more details.</label>
+      </div>
+    </details>
+    <details class="section-2" new>
+      <summary>II. Options</summary>
+      <div class="content">
+        <table class="section">
+          <tr>
+            <td>
+              <label class="comment">
+                <input type="checkbox" id="opensupport">
+                Open support page for upgrades
+              </label>
+            </td>
+          </tr>
+          <!-- -->
+          <tr>
+            <td>
+              <label class="separator"></label>
+            </td>
+          </tr>
+          <!-- -->
+          <tr>
+            <td>
+              <label class="comment" new>
+                <input type="checkbox" id="nativerecheck">
+                <span class="title inline">When dark mode is active, re-check the page after the document has finished loading with</span>
+                <input type="number" id="nativerechecktimeout" min="0" max="10000" step="10" small long>
+                <span class="bullet">delay (in milliseconds)</span>
+              </label>
+            </td>
+          </tr>
+          <!-- -->
+          <tr>
+            <td>
+              <label class="separator"></label>
+            </td>
+          </tr>
+          <!-- -->
+          <tr>
+            <td>
+              <label class="comment" new>
+                <span class="title">Adjust font size (px) within the options page</span>
+                <input type="number" id="fontsize" min="10" max="22" step="1">
+              </label>
+              <p class="note adjust">Note: The default font size is 13px.</p>
+            </td>
+          </tr>
+          <!-- -->
+          <tr>
+            <td>
+              <label class="separator"></label>
+            </td>
+          </tr>
+          <!-- -->
+          <tr>
+            <td>
+              <label class="comment">
+                <input type="checkbox" id="documentroot">
+                Add dark mode style to the document's root instead of the head
+              </label>
+              <p class="note adjust">Note: For some pages, adding styles to the root element might work better.</p>
+            </td>
+          </tr>
+          <!-- -->
+          <tr>
+            <td>
+              <label class="separator"></label>
+            </td>
+          </tr>
+          <!-- -->
+          <tr>
+            <td>
+              <label class="comment">
+                <input type="checkbox" id="checkstylesheet">
+                Monitor dark mode style and re-attach it to the document if it is removed by the page
+              </label>
+              <p class="note adjust">Note: For some reason, websites may remove the dark mode style after it is attached to the document.</p>
+              <p class="note adjust">This option ensures the dark mode style is always functional and attached to the document.</p>
+            </td>
+          </tr>
+          <!-- -->
+          <tr>
+            <td>
+              <label class="separator"></label>
+            </td>
+          </tr>
+          <!-- -->
+          <tr>
+            <td>
+              <label class="comment">
+                <input type="checkbox" id="temporarilyaction">
+                Add a temporarily dark style to prevent white flash
+              </label>
+              <fieldset class="group-controls" id="temporarilyaction-fieldset">
+                <legend>Adjust the values for style and delay</legend>
+                <label class="comment">
+                  <input type="radio" name="darkstyle" id="temporarilybrightness">
+                  Temporarily lower the brightness
+                </label>
+                <label class="comment">
+                  <input type="radio" name="darkstyle" id="temporarilydisplay">
+                  Temporarily hide the page content
+                </label>
+                <label class="comment">
+                  <input type="radio" name="darkstyle" id="temporarilysimpledark">
+                  Temporarily add a simple dark theme
+                </label>
+                <label class="comment">
+                  <span class="title">Delay to remove the temporarily dark style (in milliseconds)</span>
+                  <input type="number" id="temporarilydelay" min="0" max="10000" step="1">
+                </label>
+                <label class="comment">
+                  <span class="title">A webpage is considered heavy if the total number of elements exceeds this minimum threshold</span>
+                  <input type="number" id="temporarilythreshold" min="1" max="1000000" step="1">
+                </label>
+                <p class="info">When dark mode is active, to prevent white flash, add a temporarily dark style to hide or dim the page content before the actual dark mode takes action.</p>
+                <p class="info">Then, remove the temporarily dark style after the above delay. Note: The default value is 200ms.</p>
+                <p class="note adjust">Note 1: The larger the delay value is, the less likely you are to see the white flash.</p>
+                <p class="note adjust">Note 2: This minimum threshold adjusts the time frame for removing the temporarily dark style. The higher this value is, the sooner you may see the white flash.</p>
+              </fieldset>
+            </td>
+          </tr>
+          <!-- -->
+          <tr>
+            <td>
+              <label class="comment">
+                <input type="checkbox" id="colortemperature">
+                When dark mode is Inactive, add - Color Temperature - to ease my eyes
+              </label>
+              <fieldset class="group-controls colortemperature" id="colortemperature-fieldset">
+                <legend>Adjust the values for the color temperature (RGBA)</legend>
+                <label class="comment">
+                  <span class="title red">Red</span>
+                  <input id="colortemperature-red" type="range" min="0" max="255" step="1">
+                  <output class="red"></span>
+                </label>
+                <label class="comment">
+                  <span class="title green">Green</span>
+                  <input id="colortemperature-green" type="range" min="0" max="255" step="1">
+                  <output class="green"></span>
+                </label>
+                <label class="comment">
+                  <span class="title blue">Blue</span>
+                  <input id="colortemperature-blue" type="range" min="0" max="255" step="1">
+                  <output class="blue"></span>
+                </label>
+                <label class="comment">
+                  <span class="title opacity">Opacity</span>
+                  <input id="colortemperature-opacity" type="range" min="0" max="100" step="1">
+                  <output class="opacity"></span>
+                </label>
+                <label class="comment">
+                  <span class="title">Comma-separated list of domains to exclude from color temperature</span>
+                </label>
+                <textarea type="text" id="colortemperature-whitelist" spellcheck="false" placeholder="i.e. google.com, yahoo.com, bing.com, ..."></textarea>
+                <p class="info">When the dark mode is inactive (either globally or for some websites), you can use the color temperature to ease the strain from the white color on your eyes.</p>
+                <p class="note adjust">Note: To exclude certain domains from color temperature, use the allowlist above and add desired items comma-separated.</p>
+              </fieldset>
+            </td>
+          </tr>
+          <!-- -->
+          <tr>
+            <td>
+              <label class="comment">
+                <span class="title">Reset to factory settings</span>
+              </label>
+              <label class="comment">
+                <input type="button" id="reset-addon" value="Reset" title ="Reset the extension to factory settings">
+              </label>
+            </td>
+          </tr>
+        </table>
+      </div>
+    </details>
+    <details class="section-3">
+      <summary>III. Custom Dark</summary>
+      <div class="content">
+        <table class="section">
+          <tr>
+            <td>
+              <label class="comment">
+                <input type="checkbox" id="dark_38">
+                Dark mode - custom dark
+              </label>
+              <label class="comment">Write a custom dark theme</label>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <textarea type="text" id="custom" spellcheck="false" placeholder="i.e. html, html * {color: #eeeeee !important; background-color: #222222 !important}"></textarea>
+            </td>
+          </tr>
+        </table>
+      </div>
+    </details>
+    <details class="section-4" new>
+      <summary>IV. Native Dark</summary>
+      <div class="content">
+        <table class="section">
+          <tr>
+            <td>
+              <label class="comment">
+                <input type="checkbox" id="dark_41" data-native>
+                Dark mode - native dark
+              </label>
+              <!-- -->
+              <label class="separator"></label>
+              <!-- -->
+              <div class="native-options">
+                <!-- -->
+                <label class="comment">
+                  <span class="bullet">a.1 • When the native dark theme is active, darken colors for the below items</span>
+                </label>
+                <fieldset class="group-controls">
+                  <legend>Mark desired item(s)</legend>
+                  <div>
+                    <label class="sub-comment">
+                      <input type="checkbox" id="nativeforcefont">Font
+                    </label>
+                    <label class="sub-comment">
+                      <input type="checkbox" id="nativeforcesvgfill">SVG Fill
+                    </label>
+                    <label class="sub-comment">
+                      <input type="checkbox" id="nativeforcesvgstroke">SVG Stroke
+                    </label>
+                    <label class="sub-comment">
+                      <input type="checkbox" id="nativeforceborder">Border
+                    </label>
+                    <label class="sub-comment">
+                      <input type="checkbox" id="nativeforcebackgroundcolor">Background
+                    </label>
+                    <label class="sub-comment">
+                      <input type="checkbox" id="nativeforceboxshadow">Box Shadow
+                    </label>
+                    <label class="sub-comment">
+                      <input type="checkbox" id="nativeforcetextshadow">Text Shadow
+                    </label>
+                  </div>
+                </fieldset>
+                <!-- -->
+                <label class="comment">
+                  <input type="checkbox" id="nativeforceborderwidth">
+                  a.2 <span class="bullet">•</span> When the native dark theme is active, apply border color only if it explicitly has border width
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <input type="checkbox" id="nativebackgroundblend">
+                  a.3 <span class="bullet">•</span> When the native dark theme is active, use background-blend-mode to ensure that the background-color rule is applied<sup>[6]</sup>
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <input type="checkbox" id="nativebackgroundrelated">
+                  a.4 <span class="bullet">•</span> When the background color is modified (in option a.1), preserve other background-related properties (i.e. position, repeat)
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <input type="checkbox" id="nativebackgroundinitial">
+                  a.5 <span class="bullet">•</span> When background-related properties (in option a.4) are preserved, ignore the initial property (background-repeat: initial)
+                </label>
+                <!-- -->
+                <label class="comment" new>
+                  <input type="checkbox" id="nativebackgroundfallback">
+                  a.6 <span class="bullet">•</span>
+                  <span class="bullet inline">If a CSS color value cannot be resolved, use the dark fallback color with a</span>
+                  <input type="number" id="nativebackgroundtransparency" min="0" max="100" step="1" small>
+                  <span class="bullet"> percent transparency adjustment instead</span>
+                </label>
+                <!-- -->
+                <label class="separator"></label>
+                <!-- -->
+                <label class="comment">
+                  <input type="checkbox" id="nativedarkenimage">
+                  b.1 <span class="bullet">•</span> When the native dark theme is active, darken CSS background images
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <input type="checkbox" id="nativeremoveimage">
+                  b.2 <span class="bullet">•</span> When the native dark theme is active, remove CSS gradient background images
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <input type="checkbox" id="nativeremovecolor">
+                  b.3 <span class="bullet">•</span> When the native dark theme is active, remove CSS gradient colors (any linear, radial or conic gradient color)
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <input type="checkbox" id="nativedarkengradient">
+                  b.4 <span class="bullet">•</span> When the native dark theme is active, darken CSS gradient colors (any linear, radial or conic gradient color)
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <input type="checkbox" id="nativedarkenvariable">
+                  b.5 <span class="bullet">•</span> When the native dark theme is active, darken CSS gradient variables (any linear, radial or conic gradient color)
+                </label>
+                <!-- -->
+                <fieldset class="group-controls" id="nativedarkengradient-fieldset">
+                  <legend>Custom dark shade for the gradient color (in options b.4 & b.5)</legend>
+                  <label class="comment">
+                    <input type="text" id="nativedarkenshade">
+                  </label>
+                </fieldset>
+                <!-- -->
+                <label class="comment">
+                  <input type="checkbox" id="nativepriority">
+                  c <span class="bullet">•</span> When the native dark theme is active, make all the new dark styles high priority
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <input type="checkbox" id="nativemediaquery">
+                  d.1 <span class="bullet">•</span> When the native dark theme is active, apply dark theme for media query rules (@media)
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <input type="checkbox" id="nativekeyframes">
+                  d.2 <span class="bullet">•</span> When the native dark theme is active, apply dark theme for keyframes rules (@keyframes)
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <input type="checkbox" id="nativesupports">
+                  d.3 <span class="bullet">•</span> When the native dark theme is active, apply dark theme for supports rules (@supports)
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <input type="checkbox" id="nativecolorful">
+                  e <span class="bullet">•</span> When the native dark theme is active, try to darken, lighten or preserve colored elements based on the context (i.e. colored buttons)
+                </label>
+                <!-- -->
+                <fieldset class="group-controls" id="nativecolorful-fieldset">
+                  <legend>Process the below item(s) and darken, lighten or preserve the color</legend>
+                  <div>
+                    <label class="sub-comment">
+                      <input type="checkbox" id="nativecolorful-font">Font
+                    </label>
+                    <label class="sub-comment">
+                      <input type="checkbox" id="nativecolorful-border">Border
+                    </label>
+                    <label class="sub-comment">
+                      <input type="checkbox" id="nativecolorful-background">Background
+                    </label>
+                    <label class="sub-comment">
+                      <input type="checkbox" id="nativecolorful-svg">SVG Fill & Stroke
+                    </label>
+                  </div>
+                  <!-- -->
+                  <label class="comment" hide>
+                    <span class="bullet">Apply the above rule only if the transparency <sup class="inline">[1]</sup> is between</span>
+                    <input type="number" id="nativerangelimitmin" min="0" max="100" step="1" small>
+                    <span class="bullet"> and </span>
+                    <input type="number" id="nativerangelimitmax" min="0" max="100" step="1" small>
+                    <span class="bullet">percent</span>
+                  </label>
+                  <!-- -->
+                  <label class="comment">
+                    <span class="bullet">Apply the above rule only if the relative luminance <sup class="inline">[1]</sup> is between</span>
+                    <input type="number" id="nativerangethresholdmin" min="0" max="100" step="1" small>
+                    <span class="bullet"> and </span>
+                    <input type="number" id="nativerangethresholdmax" min="0" max="100" step="1" small>
+                    <span class="bullet">percent</span>
+                  </label>
+                  <!-- -->
+                  <label class="comment">
+                    <input type="checkbox" id="nativeforcetransparency">
+                    <span class="sub-bullet">If possible, preserve the color transparency for default dark colors</span>
+                  </label>
+                  <!-- -->
+                  <label class="comment">
+                    <input type="checkbox" id="nativeforcebackground">
+                    <span class="sub-bullet">If possible, preserve the original color when the relative luminance is below the lower limit above</span>
+                  </label>
+                  <!-- -->
+                  <label class="comment" new>
+                    <input type="checkbox" id="nativeforceclosetowhite">
+                    <span class="sub-bullet">If possible, make the selected colors that are</span>
+                    <input type="number" id="nativeforceclosetowhitemin" min="0" max="100" step="1" small>
+                    <span class="bullet">to</span>
+                    <input type="number" id="nativeforceclosetowhitemax" min="0" max="100" step="1" small>
+                    <span class="bullet">percent close to white, appear</span>
+                    <input type="number" id="nativeforceclosetowhitepercent" min="0" max="100" step="1" small> 
+                    <span class="bullet">percent darker than the background color</span>
+                  </label>
+                  <!-- -->
+                </fieldset>
+                <label class="comment">
+                  <input type="checkbox" id="nativeinline">
+                  f <span class="bullet">•</span> When the native dark theme is active, apply dark theme for inline styles<sup>[2]</sup>
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <input type="checkbox" id="nativecssstylesheet">
+                  g <span class="bullet">•</span> When the native dark theme is active, apply a dark style for all constructable stylesheets<sup>[3]</sup>
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <input type="checkbox" id="mapcssvariables">
+                  h <span class="bullet">•</span> When the native dark theme is active, map all CSS color variables with the corresponding values (to be able to process colors)
+                </label>
+                <!-- -->
+                <label class="separator"></label>
+                <!-- -->
+                <label class="comment">
+                  <input type="checkbox" id="nativeclassname">
+                  i.1 <span class="bullet">•</span> When the native dark theme is active, re-check dark mode when the class attribute for an element is changed
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <input type="checkbox" id="nativecontinue">
+                  i.2 <span class="bullet">•</span> When the native dark theme is active, continue to process the document as new elements are added (might slow down the browser)
+                </label>
+                <!-- -->
+                <label class="separator"></label>
+                <!-- -->
+                <label class="comment">
+                  <input type="radio" name="ignore" id="nativerespect">
+                  j <span class="bullet">•</span> When the native dark theme is active, respect - Custom dark styles - in section I.C above
+                </label>
+                <label class="comment">
+                  <input type="radio" name="ignore" id="nativeignore">
+                  k <span class="bullet">•</span> When the native dark theme is active, ignore all - Custom dark styles - in section I.C above
+                </label>
+                <label class="comment">
+                  <input type="radio" name="ignore" id="nativecompatible">
+                  l <span class="bullet">•</span> When the native dark theme is active, ignore only compatible - Custom dark styles - in section I.C above (marked with a yellow star)
+                </label>
+                <!-- -->
+                <label class="separator"></label>
+                <!-- -->
+                <label class="comment">
+                  <input type="checkbox" id="nativeperformanceobserver">
+                  m.1 <span class="bullet">•</span> When the native dark theme is active, use the PerformanceObserver method to track style changes<sup>[4][5]</sup>
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <input type="radio" name="performance" id="nativebestperformance">
+                  m.2 <span class="bullet">•</span> When the native dark theme is active, adjust the dark engine for better performance (may slightly increase the page load time)
+                </label>
+                <label class="comment">
+                  <input type="radio" name="performance" id="nativebestpageload">
+                  m.3 <span class="bullet">•</span> When the native dark theme is active, adjust the dark engine for a faster page load (may increase the white flash)<sup>[7][8]</sup>
+                </label>
+                <!-- -->
+                <label class="separator"></label>
+                <!-- -->
+                <label class="comment">
+                  <input type="checkbox" id="nativedeeprules">
+                  n <span class="bullet">•</span> When the native dark theme is active, inspect all deep nested rules (the default action is to only inspect one deep level)<sup>[9]</sup>
+                </label>
+              </div>
+              <!-- -->
+              <label class="separator"></label>
+              <!-- -->
+              <div class="native-sup">
+                <p class="note" hide>[1] Learn more about transparency: <a>https://www.w3.org/TR/css-color-3/#transparency</a></p>
+                <p class="note">[1] Learn more about relative luminance: <a>https://www.w3.org/WAI/GL/wiki/Relative_luminance</a></p>
+                <p class="note">[2] Dark theme for inline CSS (in beta phase).</p>
+                <p class="note">[3] Dark theme for custom HTML elements (in beta phase).</p>
+                <p class="note">[4] Learn more about PerformanceObserver: <a>https://www.w3.org/TR/performance-timeline/#the-performanceobserver-interface</a></p>
+                <p class="note">[5] This option is required when you enable option m.3 to be able to track style changes. You can also enable it to improve dark mode performance.</p>
+                <p class="note">[6] Learn more about background-blend-mode: <a>https://www.w3.org/TR/compositing-1/#background-blend-mode</a></p>
+                <p class="note">[7] This option optimizes the dark engine to balance the extension's performance and page load time (may slightly reduce the dark mode robustness).</p>
+                <p class="note">[8] It is only available if PerformanceLongTaskTiming is supported in your browser: <a>https://www.w3.org/TR/longtasks-1/#sec-PerformanceLongTaskTiming</a></p>
+                <p class="note">[9] Enabling this option might increase the CPU overhead and page load time, as CSS styles might have many deep nested rules.</p>
+              </div>
+              <!-- -->
+              <label class="separator"></label>
+              <!-- -->
+              <label class="comment">CSS variables for native dark theme</label>
+              <div class="cssvariables">
+                <!-- -->
+                <label class="comment">
+                  <span class="variable">--native-dark-accent-color</span>
+                  <input type="color" id="--native-dark-accent-color">
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <span class="variable">--native-dark-font-color</span>
+                  <input type="color" id="--native-dark-font-color">
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <span class="variable">--native-dark-bg-color</span>
+                  <input type="color" id="--native-dark-bg-color">
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <span class="variable">--native-dark-link-color</span>
+                  <input type="color" id="--native-dark-link-color">
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <span class="variable">--native-dark-cite-color</span>
+                  <input type="color" id="--native-dark-cite-color">
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <span class="variable">--native-dark-fill-color</span>
+                  <input type="color" id="--native-dark-fill-color">
+                </label>                
+                <!-- -->
+                <label class="comment">
+                  <span class="variable">--native-dark-mark-color</span>
+                  <input type="color" id="--native-dark-mark-color">
+                </label>                
+                <!-- -->
+                <label class="comment">
+                  <span class="variable">--native-dark-border-color</span>
+                  <input type="color" id="--native-dark-border-color">
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <span class="variable">--native-dark-visited-link-color</span>
+                  <input type="color" id="--native-dark-visited-link-color">
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <span class="variable">--native-dark-opacity</span>
+                  <input type="text" id="--native-dark-opacity">
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <span class="variable">--native-dark-brightness</span>
+                  <input type="text" id="--native-dark-brightness">
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <span class="variable">--native-dark-box-shadow</span>
+                  <input type="text" id="--native-dark-box-shadow">
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <span class="variable">--native-dark-text-shadow</span>
+                  <input type="text" id="--native-dark-text-shadow">
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <span class="variable">--native-dark-transparent-color</span>
+                  <input type="text" id="--native-dark-transparent-color">
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <span class="variable">--native-dark-bg-image-color</span>
+                  <input type="text" id="--native-dark-bg-image-color">
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <span class="variable">--native-dark-bg-image-filter</span>
+                  <input type="text" id="--native-dark-bg-image-filter">
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <span class="variable">--native-dark-bg-blend-mode</span>
+                  <input type="text" id="--native-dark-bg-blend-mode">
+                </label>
+                <!-- -->
+                <label class="comment">
+                  <span class="variable">--native-dark-scrollbar-color</span>
+                  <input type="text" id="--native-dark-scrollbar-color">
+                </label>
+                <!-- -->
+              </div>
+              <p class="note">
+                Note: Learn more about the valid syntax and scrollbar color values for --native-dark-scrollbar-color: <a>https://www.w3.org/TR/css-scrollbars/</a>
+              </p>
+              <!-- -->
+              <label class="separator"></label>
+              <!-- -->
+              <label class="comment">Extra CSS rules for native dark theme</label>
+              <p class="note">
+                Note: Native dark uses document.styleSheets, MutationObserver, and the following additional CSS rules to darkens the page as new styles are adding. Edit the below rules to customize desired element's styles in dark mode. This dark theme is still in beta and may not work properly. Moreover, it may slow down content-heavy websites.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <textarea type="text" id="nativecssrules" spellcheck="false" placeholder="i.e. html, html * {color: #eeeeee !important; background-color: #222222 !important}"></textarea>
+            </td>
+          </tr>
+        </table>
+      </div>
+    </details>
+    <details class="section-5" new>
+      <summary>V. Exclude list</summary>
+      <div class="content">
+        <table class="section">
+          <tr>
+            <td>
+              <label class="comment">
+                <input type="checkbox" id="excludeincolorschemedark">
+                Apply the options below (except option d) only when the browser prefers dark mode (prefers-color-scheme: dark)
+              </label>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <p class="note">Note 1: When this option is disabled, all options below remain active regardless of the color-scheme preference.</p>
+              <p class="note">Note 2: All the options below apply to classic, custom, and native dark styles.</p>
+            </td>
+          </tr>
+          <!-- -->
+          <tr>
+            <td>
+              <label class="separator"></label>
+            </td>
+          </tr>
+          <!-- -->
+          <tr>
+            <td>
+              <label class="comment">
+                <input type="checkbox" id="excludemetacolorscheme">
+                <span class="title">Exclude pages that define a <b>color-scheme</b> meta tag (e.g. name="color-scheme" content="dark light")</span>
+              </label>
+            </td>
+          </tr>
+          <!-- -->
+          <tr>
+            <td>
+              <label class="separator"></label>
+            </td>
+          </tr>
+          <!-- -->
+          <tr>
+            <td>
+              <label class="comment" new>
+                <input type="checkbox" id="excludecsscolorscheme">
+                <span class="title">Exclude pages that define <b>color-scheme: dark</b> in the CSS <b>html</b> tag when the OS/browser native dark mode is preferred</span>
+              </label>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <label class="comment" new>
+                <input type="checkbox" id="excludedarkbackground">
+                <span class="title">Exclude pages with a dark background using the following brightness threshold</span>
+                <input type="number" id="excludedarkbackgroundthreshold" min="32" max="224" step="1">
+              </label>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <label class="comment" new>
+                <input type="checkbox" id="excludedarkbackgroundnative">
+                <span class="title">Apply the above option only to native dark styles in Section IV; otherwise, it will apply to all dark styles</span>
+              </label>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <p class="note">Note 1: If the condition is met, these three options exclude the page only AFTER the document has finished loading.</p>
+              <p class="note">Note 2: The second option checks only the HTML and BODY background brightness against the specified threshold value.</p>
+              <p class="note">Note 3: The default brightness threshold is 128. The allowed range is 32 to 224.</p>
+              <p class="note">Note 4: HTML/BODY computed background brightness is calculated using RGB color values.</p>
+            </td>
+          </tr>
+          <!-- -->
+          <tr>
+            <td>
+              <label class="separator"></label>
+            </td>
+          </tr>
+          <!-- -->
+          <tr>
+            <td>
+              <label class="comment">
+                <input type="checkbox" id="excludeiframes">
+                Besides the top frame, exclude iframe(s) from dark mode (when below cookies, localStorage, or sessionStorage items are active)
+              </label>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <p class="note">Note: This option is only active when a page contains one of these values in the cookie, localStorage, attributes, etc.</p>
+            </td>
+          </tr>
+          <!-- -->
+          <tr>
+            <td>
+              <label class="separator"></label>
+            </td>
+          </tr>
+          <!-- -->
+          <tr>
+            <td>
+              <label class="comment">a. Comma-separated list of HTML or BODY attributes to exclude from dark mode</label>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <textarea type="text" id="excludeattributes" spellcheck="false" placeholder="i.e. data-mode, user-theme, ..."></textarea>
+            </td>
+          </tr>
+          <!-- -->
+          <tr>
+            <td>
+              <label class="comment">b. Comma-separated list of HTML or BODY class names to exclude from dark mode</label>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <textarea type="text" id="excludeclassnames" spellcheck="false" placeholder="i.e. data-mode, user-theme, ..."></textarea>
+            </td>
+          </tr>
+          <!-- -->
+          <tr>
+            <td>
+              <label class="comment">c. Comma-separated list of cookies, localStorage or sessionStorage values to exclude from dark mode</label>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <textarea type="text" id="cookie" spellcheck="false" placeholder="i.e. theme=dark, ..."></textarea>
+            </td>
+          </tr>
+          <!-- -->
+          <tr>
+            <td>
+              <label class="comment">d. Comma-separated list of domains to exclude from dark mode</label>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <textarea type="text" id="whitelist" spellcheck="false" placeholder="i.e. google.com, yahoo.com, bing.com, ..."></textarea>
+            </td>
+          </tr>
+        </table>
+      </div>
+    </details>
+    <details class="section-6">
+      <summary>VI. Include list</summary>
+      <div class="content">
+        <table class="section">
+          <tr>
+            <td>
+              <label class="comment">Switch the extension to inclusive mode</label>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <label class="comment">
+                <input id="inclusiveaction" type="checkbox">
+                Enable the inclusive mode (dark mode per-domain)
+              </label>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <label class="comment">
+                <input id="toggleaction" type="checkbox">
+                When the inclusive mode is active, if I press the toolbar button, add the current domain to the include list and, when I press it again, remove the domain from the include list.
+              </label>
+              <p class="note">Note: Enabling this option will overwrite the default toggle button's behavior.</p>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <label class="comment">Comma-separated list of domains to include in dark mode</label>
+              <p class="note">Note: When this option is active, only the below domains are included in dark mode and all other websites and domains are ignored.</p>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <textarea type="text" id="inclusivelist" spellcheck="false" placeholder="i.e. google.com, yahoo.com, bing.com, ..."></textarea>
+            </td>
+          </tr>
+        </table>
+      </div>
+    </details>
+    <details class="section-7">
+      <summary>VII. Schedule ON | OFF</summary>
+      <div class="content">
+        <table class="section">
+          <tr>
+            <td>
+              <label class="comment">Schedule to turn the extension ON/OFF automatically</label>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <label class="comment">
+                <input id="scheduleaction" type="checkbox">
+                Enable the ON/OFF schedule (default is not active). Please note that the below schedules are repeated daily at the given time
+              </label>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <label class="comment white">
+                Turn dark mode ON at
+                <input class="time" id="scheduleon" type="time">
+              </label>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <label class="comment white">
+                Turn dark mode OFF at
+                <input class="time" id="scheduleoff" type="time">
+              </label>
+            </td>
+          </tr>
+        </table>
+      </div>
+    </details>
+    <!-- -->
+    <div class="footer">
+      <p class="note">Note: All the settings are auto-saved to the memory</p>
+    </div>
+    <!-- -->
+    <script type="text/javascript" src="explore/explore.js" async></script>
+    <script type="text/javascript" src="../rules/rules.js"></script>
+    <script type="text/javascript" src="vendor/behave.js"></script>
+    <script type="text/javascript" src="options.js"></script>
+  </body>
+</html>

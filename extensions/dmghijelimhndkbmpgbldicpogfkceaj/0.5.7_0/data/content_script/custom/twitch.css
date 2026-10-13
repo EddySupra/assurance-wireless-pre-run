@@ -1,0 +1,123 @@
+.hero,
+.elZcx,
+.OBUFH,
+.IiIjZ,
+.bAVEXw,
+.ilvRlP,
+.footer,
+.hxwSwq,
+.hTTohL,
+.fMIGgJ,
+.gdKXDc,
+.gRbxbd,
+.cnwXwd,
+.lldfdH,
+.kfOuIF,
+.gCePyT,
+.bAGwnI,
+.dxyVIj,
+.bNuSxQ,
+.jHpjIV,
+.fqzlTX,
+.jdpzyl,
+.bndllM,
+.kbdfeJ,
+.iwcTpn,
+.gqOBFd,
+.cFYDRv,
+.kssCwE,
+.hRzxkQ,
+.jOVwMQ,
+.htiGKh,
+.side-nav,
+.subscribe-cta,
+.nav__container,
+.consent-banner,
+.navigation-link,
+.subscribe-footer,
+.side-nav-page-info,
+.side-nav-card__avatar,
+.anon-front__featured-section,
+.chat-line__username-container,
+.dPFcsH > :not(.ScAspectSpacer-sc-18km980-0) {
+  filter: invert(100%) !important;
+  -webkit-filter: invert(100%) !important;
+}
+
+div[data-test-selector='tw-card-title'],
+footer[id='twilight-sticky-footer-root'],
+div[data-test-selector='test_selector_prime_tracking_button_wrapper'] {
+  filter: invert(100%) !important;
+  -webkit-filter: invert(100%) !important;
+}
+
+.gmCwLG,
+.featured-content-carousel,
+.directory-header-new__info .doeqbO,
+.persistent-player__border--mini .doeqbO {
+  filter: invert(0) !important;
+  -webkit-filter: invert(0) !important;
+}
+
+.side-bar-contents {
+  background: #383838 !important;
+}
+
+.tw-input,
+.prime-offers.tw-relative,
+.tw-core-button--secondary,
+.pl-age-restriction-overlay,
+.tw-core-button--secondary.tw-core-button--disabled {
+  background: #c7c7c7 !important;
+}
+
+.modal__backdrop,
+.tw-root--theme-dark .modal__backdrop,
+.tw-root--theme-light .modal__backdrop {
+  background-color: rgb(159 159 159 / 85%) !important;
+}
+
+.tw-root--theme-light .side-nav {
+  background-color: #383838 !important;
+}
+
+.tw-root--theme-light .carousel-player-nav-arrow__container {
+  background-color: #818181 !important;
+}
+
+.hUInuk {
+  background-color: #848484 !important;
+}
+
+.simplebar-content .eUABfN {
+  color: #cfcfcf !important;
+}
+
+.simplebar-content .gWcDEo,
+.simplebar-content .kyRSfG,
+.simplebar-content .fdYGpZ {
+  color: #ffffff !important;
+}
+
+nav[data-a-target='top-nav-container'] button.yezmM,
+nav[data-a-target='top-nav-container'] .navigation-link {
+  color: #ffffff !important;
+}
+
+div[data-a-target='consent-banner'] button.yezmM {
+  color: #000000 !important;
+}
+
+.tw-root--theme-light .side-nav-card__link:hover {
+  background: #535353 !important;
+}
+
+.video-player,
+.video-player__container {
+  background: #959595 !important;
+}
+
+.video-player .top-bar,
+.video-player .player-controls {
+  background: unset !important;
+}

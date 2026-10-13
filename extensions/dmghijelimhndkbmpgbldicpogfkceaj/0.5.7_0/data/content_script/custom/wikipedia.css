@@ -1,0 +1,146 @@
+html {
+  background-color: #ececec !important;
+}
+
+a:visited {
+  color: #77a14b !important;
+}
+
+a.new {
+  color: #ba0000 !important;
+}
+
+a.new:visited {
+  color: #a55858 !important;
+}
+
+.derivedterms {
+  background: #303030 !important;
+}
+
+.app-badge,
+.search-container,
+.wikipedia25-slogan,
+.mw-search-result-data,
+.other-project-icon .sprite,
+.mw-ui-icon-wikimedia-expand,
+.cdx-toggle-switch:last-child,
+.navbox-inner, .navbox-subgroup {
+  filter: invert(100%) !important;
+  -webkit-filter: invert(100%) !important;
+}
+
+#p-logo,
+#p-lang-btn {
+  filter: invert(100%) !important;
+  -webkit-filter: invert(100%) !important;
+}
+
+.pure-form,
+.suggestions-dropdown .suggestion-thumbnail {
+  opacity: 1 !important;
+  filter: invert(0) !important;
+  -webkit-filter: invert(0) !important;
+}
+
+#p-logo {
+  background-color: #383838 !important;
+}
+
+a, .toctogglelabel {
+  color: #ad6206 !important;
+}
+
+#mw-panel,
+.mw-footer,
+.mw-mmv-image {
+  background-color: #e4e4e4 !important;
+}
+
+#simpleSearch input {
+  background-color: white !important;
+}
+
+.banner__topbar {
+  background: #34e3d4 !important;
+}
+
+.banner.banner--visible {
+  border-color: #34e3d4 !important;
+}
+
+.vector-feature-zebra-design-disabled .vector-header-container {
+  background-color: #b1b1b1 !important;
+}
+
+.vector-feature-zebra-design-disabled .mw-page-container {
+  background-color: #dfdfdf !important;
+}
+
+.vector-feature-zebra-design-disabled .vector-toc {
+  background-color: #ededed !important;
+}
+
+.mw-body-content .mw-parser-output .navbox-even,
+.mw-body-content .mw-parser-output .navbox-title,
+.mw-body-content .mw-parser-output .navbox-group,
+.mw-body-content .mw-parser-output .navbox-abovebelow,
+.mw-body-content .mw-parser-output .navbox-subgroup .navbox-title {
+  background-color: #000000 !important;
+}
+
+.mw-body-content .mw-parser-output .navbox,
+.mw-body-content .mw-parser-output .navbox-subgroup,
+.mw-body-content .mw-parser-output .navbox-subgroup .navbox-group, 
+.mw-body-content .mw-parser-output .navbox-subgroup .navbox-abovebelow {
+  background-color: #ffffff !important;
+}
+
+.mw-body-content .mw-parser-output tr+tr>.navbox-list,
+.mw-body-content .mw-parser-output tr+tr>.navbox-group, 
+.mw-body-content .mw-parser-output tr+tr>.navbox-image, 
+.mw-body-content .mw-parser-output tr+tr>.navbox-abovebelow {
+  border-color: #202020 !important;
+}
+
+.pure-form input[type='search'] {
+  color: #fff;
+  background-color: #131313;
+}
+
+.mw-logo-container.skin-invert {
+  background-color: #4d4d4d !important;
+  outline: solid 5px #4d4d4d !important;
+}
+
+.suggestions-dropdown {
+  background-color: #000;
+}
+
+.suggestion-link.active {
+  background-color: #2f2f2f;
+}
+
+.app-badge a {
+  color: transparent !important;
+}
+
+.mw-footer,
+.mw-mmv-image,
+.mw-page-container,
+.vector-pinned-container,
+.vector-header-container .mw-header {
+  background-color: #f1f1f1 !important;
+}
+
+.cdx-label .cdx-label__label__text {
+  color: #e3e3e3 !important;
+}
+
+.mw-parser-output .side-box {
+  background-color: #d5d5d5 !important;
+}
+
+#footer-icons a {
+  background-color: #2d2d2d !important;
+}

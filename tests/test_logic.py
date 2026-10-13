@@ -1,13 +1,3 @@
-"""Tests for the parts that decide things, which are the parts worth pinning.
-
-Nothing here opens a browser or touches the site. These cover the pure logic
-the run leans on: how a lead gets bucketed, which failures are worth another
-browser, and how the SeleniumBase-shaped selectors are translated -- each of
-which cost a real run to discover the first time.
-
-    python -m pytest tests -q
-"""
-
 import sys
 from pathlib import Path
 
@@ -43,11 +33,6 @@ from aw_bot.steps.step_00_direct_frame import encode_email  # noqa: E402
 from aw_bot.sb_shim import _by, _text  # noqa: E402
 
 
-# --------------------------------------------------------------------------
-# classify: which bucket a screen puts the lead in
-# --------------------------------------------------------------------------
-
-
 @pytest.mark.parametrize(
     "heading, expected",
     [
@@ -59,7 +44,7 @@ from aw_bot.sb_shim import _by, _text  # noqa: E402
 def test_known_screens_are_classified(heading, expected):
     verdict, why = classify_screen([heading], "")
     assert verdict == expected
-    assert why  # the reason is what makes an artifact readable later
+    assert why
 
 
 def test_unseen_screen_is_unknown_not_guessed():
@@ -81,8 +66,6 @@ def test_body_text_classifies_when_the_heading_does_not():
 
 
 def test_document_request_wins_over_a_passing_mention_of_income():
-    """Order matters: a doc-upload screen can mention income in passing, and
-    calling that lead a sale would be the expensive mistake."""
     verdict, _ = classify_screen(
         ["ALMOST DONE! Upload Your Qualifying and Identity Proof Documents"],
         "income and demographic information will be requested later",
@@ -99,25 +82,14 @@ def test_terminal_verdicts():
     assert not is_terminal(UNKNOWN)
 
 
-# --------------------------------------------------------------------------
-# rejections the form makes before any decision screen
-# --------------------------------------------------------------------------
-
-
 def test_invalid_email_modal_becomes_a_verdict():
     message = "Important: Sorry, that's an invalid email address. Be sure it's correct."
     assert rejection_verdict(message) == BAD_EMAIL
 
 
 def test_unrecognised_rejection_has_no_verdict():
-    """An unfamiliar rejection must stay a failure rather than be mislabelled."""
     assert rejection_verdict("Please correct the highlighted fields") == ""
     assert rejection_verdict("") == ""
-
-
-# --------------------------------------------------------------------------
-# which failures deserve another browser
-# --------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -142,14 +114,7 @@ def test_browser_gone_is_retryable(message):
     ],
 )
 def test_real_failures_are_not_retried(message):
-    """Retrying these would resubmit the applicant, which is what makes the
-    enrollment host start refusing."""
     assert not _browser_died(Exception(message))
-
-
-# --------------------------------------------------------------------------
-# selector translation: SeleniumBase's dialect -> plain Selenium
-# --------------------------------------------------------------------------
 
 
 def test_plain_css_is_left_alone():
@@ -168,8 +133,6 @@ def test_contains_becomes_xpath():
 
 
 def test_contains_keeps_a_class_qualifier():
-    """`button.order-button:contains("Continue")` must not match the Back
-    button, so the class has to survive the translation."""
     how, what = _by('button.order-button:contains("Continue")')
     assert how == "xpath"
     assert "order-button" in what and "Continue" in what
@@ -185,11 +148,6 @@ def test_single_quoted_contains_works():
     assert "Continue" in what
 
 
-# --------------------------------------------------------------------------
-# a closing window can answer with bytes
-# --------------------------------------------------------------------------
-
-
 def test_bytes_from_a_dying_window_become_text():
     assert _text(b"https://example.com/x") == "https://example.com/x"
 
@@ -199,14 +157,7 @@ def test_text_passthrough_and_none():
     assert _text(None) == ""
 
 
-# --------------------------------------------------------------------------
-# things put in front of the form inside the frame
-# --------------------------------------------------------------------------
-
-
 class _FakeSb:
-    """Just enough of the sb surface for frame_interruption."""
-
     def __init__(self, title="", body="", iframe_srcs=()):
         self._title, self._body, self._srcs = title, body, list(iframe_srcs)
 
@@ -231,19 +182,12 @@ def test_turnstile_iframe_inside_the_frame_is_named():
 
 
 def test_human_verification_wording_is_named():
-    """"Verify you are human" is Cloudflare's wording, so it is now reported
-    as the challenge it is rather than as a generic prompt."""
     assert "challenge" in frame_interruption(_FakeSb(body="please verify you are human"))
 
 
 def test_an_ordinary_screen_is_not_an_interruption():
     sb = _FakeSb(title="Assurance Wireless Enrollment", body="Who is the Benefit Eligible Applicant?")
     assert frame_interruption(sb) == ""
-
-
-# --------------------------------------------------------------------------
-# real OS-level input: when it is allowed to take over the machine
-# --------------------------------------------------------------------------
 
 
 @pytest.mark.skipif(not real_input.AVAILABLE, reason="pyautogui not installed")
@@ -256,23 +200,14 @@ def test_real_input_is_off_unless_asked_for():
 
 
 def test_real_input_refuses_headless():
-    """There is no window to aim the cursor at."""
     assert not real_input.should_use(RunConfig(real_input=True, headless=True))
 
 
 def test_real_input_refuses_parallel_workers():
-    """One machine, one cursor: parallel workers would fight over it."""
     assert not real_input.should_use(RunConfig(real_input=True, workers=3))
 
 
-# --------------------------------------------------------------------------
-# the consent dialog is not a wizard screen
-# --------------------------------------------------------------------------
-
-
 def test_onetrust_panel_is_recognised_as_consent():
-    """Seen live: this opened over the eligibility screen and was taken for
-    the next step of the application."""
     assert is_consent_screen(
         ["Do Not Sell My Personal Information", "Manage Consent Preferences",
          "Performance Cookies"]
@@ -285,14 +220,7 @@ def test_wizard_screens_are_not_consent():
     assert not is_consent_screen([])
 
 
-# --------------------------------------------------------------------------
-# "still working" is not "stuck"
-# --------------------------------------------------------------------------
-
-
 class _VisibilitySb:
-    """Reports the given selectors as visible, everything else as not."""
-
     def __init__(self, visible=()):
         self.visible = set(visible)
 
@@ -301,8 +229,6 @@ class _VisibilitySb:
 
 
 def test_spinner_on_a_disabled_button_is_busy():
-    """What the eligibility screen actually shows while its lookup runs:
-    <button disabled><span class="fa fa-spinner fa-pulse"></span>Continue"""
     assert is_busy(_VisibilitySb({"button[disabled] .fa-spinner"}))
 
 
@@ -322,14 +248,7 @@ def test_visibility_errors_do_not_count_as_busy():
     assert not is_busy(Broken())
 
 
-# --------------------------------------------------------------------------
-# Cloudflare interstitials, including the one served as the page itself
-# --------------------------------------------------------------------------
-
-
 class _PageSb:
-    """A page with a title, body text and source."""
-
     def __init__(self, title="", body="", source="", iframe_srcs=()):
         self._title, self._body = title, body
         self._source, self._srcs = source, list(iframe_srcs)
@@ -348,9 +267,6 @@ class _PageSb:
 
 
 def test_challenge_page_is_caught_by_its_title():
-    """The real one is titled "Checking your Browser...", which matched none
-    of the block signals -- it was visible on screen while the code saw
-    nothing."""
     assert challenge_present(_PageSb(title="Checking your Browser…"))
 
 
@@ -363,11 +279,8 @@ def test_visible_turnstile_iframe_is_a_challenge():
 
 
 def test_embedded_invisible_turnstile_is_not_a_challenge():
-    """The enrollment form carries a Turnstile widget on every screen. Counting
-    its mere presence as a challenge made a refused token report as "something
-    is in front of the form" on a screen where nothing was."""
     sb = _PageSb(title="Assurance Wireless Enrollment", body="Who is the Benefit Eligible Applicant?")
-    sb._srcs = []  # the filter drops invisible frames before we see them
+    sb._srcs = []
     assert not challenge_present(sb)
 
 
@@ -383,8 +296,6 @@ def test_botnet_wording_is_a_network_verdict():
 
 
 def test_network_block_says_the_network_is_the_problem():
-    """The remedy differs from every other block: no fingerprint or pacing
-    change clears an IP-reputation verdict, so the message must say so."""
     sb = _PageSb(body="botnet activity detected", source="unbotnet.me")
     with pytest.raises(BotBlockedError) as caught:
         check_not_blocked(sb)
@@ -395,14 +306,7 @@ def test_clean_page_is_not_blocked():
     check_not_blocked(_PageSb(title="Assurance Wireless", body="Apply now today"))
 
 
-# --------------------------------------------------------------------------
-# Turnstile is what the Continue button is actually waiting for
-# --------------------------------------------------------------------------
-
-
 class _ScriptSb:
-    """Returns a canned result for execute_script."""
-
     def __init__(self, result):
         self.result = result
 
@@ -411,13 +315,6 @@ class _ScriptSb:
 
 
 def test_a_rendered_widget_without_a_token_is_the_gate():
-    """The form cannot submit until the widget it rendered issues a token.
-
-    Note `rendered`, not `present`. The distinction is the bug this replaced:
-    the old reading treated the loader <script id="ngx-turnstile"> as a widget,
-    so every screen from step 9's Continue onwards looked like it was waiting
-    on a challenge that had never been asked for.
-    """
     state = turnstile_state(_ScriptSb(
         {"rendered": True, "token": False, "widgetShowing": False}
     ))
@@ -425,7 +322,6 @@ def test_a_rendered_widget_without_a_token_is_the_gate():
 
 
 def test_a_loaded_api_is_not_a_rendered_widget():
-    """Downloading Turnstile's API says nothing about a challenge being up."""
     state = turnstile_state(_ScriptSb(
         {"apiLoaded": True, "rendered": False, "token": False}
     ))
@@ -447,7 +343,6 @@ def test_turnstile_with_a_token_is_satisfied():
 
 
 def test_an_error_code_survives_into_the_state():
-    """The code is the whole point: `600***` is what "(600)" on screen means."""
     state = turnstile_state(_ScriptSb(
         {"rendered": True, "token": False, "errorCode": "600010"}
     ))
@@ -462,24 +357,12 @@ def test_missing_turnstile_reads_as_absent():
     assert turnstile_state(Broken()) == {}
 
 
-# --------------------------------------------------------------------------
-# the enrollment app's own URL encoding
-# --------------------------------------------------------------------------
-
-
 def test_email_encoding_matches_the_site():
-    """Checked against a URL the site itself produced: @ becomes |, reversed,
-    then base64."""
     assert encode_email("dmimbo@gmail.com") == "bW9jLmxpYW1nfG9ibWltZA=="
 
 
 def test_email_encoding_is_case_and_space_insensitive():
     assert encode_email("  DMIMBO@Gmail.com ") == encode_email("dmimbo@gmail.com")
-
-
-# --------------------------------------------------------------------------
-# a confirmation is a question, not a refusal
-# --------------------------------------------------------------------------
 
 
 CONFIRM_TEXT = (
@@ -489,8 +372,6 @@ CONFIRM_TEXT = (
 
 
 def test_the_applicant_confirmation_is_recognised():
-    """Seen live on row 64: the run had got through the screen and then
-    reported this as "the form rejected the data"."""
     assert is_confirm_modal(CONFIRM_TEXT)
 
 
@@ -501,9 +382,6 @@ def test_a_real_rejection_is_not_a_confirmation():
     assert not is_confirm_modal("Important: The application can not be processed at this time.")
     assert not is_confirm_modal("")
 
-
-
-# -- the second way the wizard asks for proof --------------------------------
 
 from aw_bot.classify import (  # noqa: E402
     NEED_DOCUMENTS as _ND, SCREENS as _SCREENS, TERMINAL as _TERMINAL,
@@ -520,12 +398,6 @@ WORKSHEET_BODY = (
 
 
 def test_the_household_worksheet_is_need_documents():
-    """Reached when the applicant says they live with another adult who has
-    their own LifeLine benefit -- more than one household at the address,
-    which needs a worksheet to evidence it. Its breadcrumb reads
-    "... | Disclosures | Submit Proof", so it is the same answer as the
-    upload screen: approval is blocked on paperwork the agent lacks.
-    """
     verdict, why = _classify(WORKSHEET_HEADINGS, WORKSHEET_BODY)
     assert verdict == _ND
     assert "Worksheet" in why
@@ -537,7 +409,6 @@ def test_it_is_recognised_from_the_body_alone():
 
 
 def test_the_upload_screen_still_classifies():
-    """The two share a verdict, and the older one must not be shadowed."""
     verdict, why = _classify(
         ["ALMOST DONE! Upload Your Qualifying and Identity Proof Documents"], ""
     )
@@ -546,10 +417,6 @@ def test_the_upload_screen_still_classifies():
 
 
 def test_every_screen_declared_for_a_terminal_verdict_is_reachable():
-    """classify_screen used to build {verdict: screen}, keeping only the last
-    screen declared for each. Adding a second way to reach a bucket would
-    have silently disabled the first, and no test would have failed.
-    """
     for verdict in _TERMINAL:
         for screen in _SCREENS:
             if screen.verdict != verdict:
@@ -563,24 +430,14 @@ def test_every_screen_declared_for_a_terminal_verdict_is_reachable():
 
 
 def test_more_than_one_screen_shares_the_need_documents_verdict():
-    """Otherwise the regression above could not recur, and the test above
-    would be passing vacuously."""
     sharing = [s for s in _SCREENS if s.verdict == _ND]
     assert len(sharing) >= 2, [s.label for s in sharing]
 
-
-# -- a wedged renderer is a dead browser -------------------------------------
 
 from aw_bot.runner import _browser_died as _died  # noqa: E402
 
 
 def test_a_renderer_timeout_is_worth_another_browser():
-    """Row 256 hit this on driver.get() for the start page -- nothing entered,
-    no form yet -- and the lead was thrown away instead of retried.
-
-    Selenium reports it as a plain TimeoutException, so none of the
-    session/connection signals matched it.
-    """
     exc = Exception(
         "Message: timeout: Timed out receiving message from renderer: -0.003\n"
         "  (Session info: chrome=151.0.7922.173)"
@@ -593,8 +450,6 @@ def test_the_other_renderer_wording_matches_too():
 
 
 def test_a_page_timeout_is_still_not_a_dead_browser():
-    """An ordinary wait timing out says something about the page, not the
-    browser, and retrying it on a new profile would repeat the same wait."""
     for message in (
         "Step 2: URL never reached any of ['/apply-now'] within 90s",
         "Step 10: clicked Continue but the screen never changed",

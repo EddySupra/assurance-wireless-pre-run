@@ -1,0 +1,58 @@
+.qeb0Aox1,
+.Tab--active,
+.im_dialog_peer,
+span[for-dialog],
+.File .file-icon,
+a[dropdown-toggle],
+.Message > .Avatar,
+span[class*='emoji'],
+span[class*='photo'],
+.MiddleHeader .Avatar,
+.ChatBadge-transition,
+.composer_rich_textarea,
+.composer_emoji_tooltip_content,
+.MessageList .sticky-date.interactive,
+html .Chat.selected:not(.forum) .ListItem-button,
+div[class*='peer-color-']:not(:has(img)):not(:has(i)),
+html .Chat.selected:not(.forum):hover .ListItem-button {
+  filter: invert(100%) !important;
+  -webkit-filter: invert(100%) !important;
+}
+
+.message-content .svg-appendix,
+.composer-wrapper .svg-appendix,
+#MiddleColumn .Composer > .Button {
+  filter: invert(0) !important;
+  -webkit-filter: invert(0) !important;
+}
+
+.composer_rich_textarea img {
+  opacity: 1 !important;
+}
+
+.tg_head_split,
+.im_dialogs_scrollable_wrap .active a.im_dialog {
+  background-color: #b58265 !important;
+}
+
+a.im_dialog .im_short_message_media,
+a.im_dialog .im_short_message_service,
+a.im_dialog .im_dialog_chat_from_wrap {
+  color: #b58265 !important;
+}
+
+.active .im_dialog_peer {
+  color: #000 !important;
+}
+
+.SearchInput {
+  background-color: rgb(215 215 215) !important;
+}
+
+#MediaViewer {
+  background: rgb(245 245 245 / 90%) !important;
+}
+
+#MediaViewer .media-viewer-head {
+  background: linear-gradient(to bottom, #8d8d8d 0%, rgb(255 255 255 / 0%) 100%) !important;
+}

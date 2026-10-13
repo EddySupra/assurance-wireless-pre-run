@@ -1,5 +1,3 @@
-"""Console + file logging, one log file per run."""
-
 import logging
 import sys
 from datetime import datetime
@@ -15,8 +13,6 @@ def run_id() -> str:
 def setup(run_dir: Path, verbose: bool = False) -> logging.Logger:
     LOG.setLevel(logging.DEBUG if verbose else logging.INFO)
     LOG.handlers.clear()
-    # SeleniumBase configures the root logger, so propagating would print
-    # every line twice.
     LOG.propagate = False
 
     console = logging.StreamHandler(sys.stdout)

@@ -1,0 +1,162 @@
+a[id],
+a[data-track],
+a[aria-describedby],
+aside[aria-labelledby][data-viewport][trackableid] {
+  filter: invert(100%) !important;
+  -webkit-filter: invert(100%) !important;
+}
+
+.gh-td,
+.vi-filmstp,
+.hl-loyalty,
+.vi-feedback,
+.b-visualnav__img,
+.vi-VR-btnWdth-XL,
+.s-item .NEGATIVE,
+.vi-swc-embg-dollar,
+.b-event__imgwrapper,
+.social-widget .sw a,
+.vi-ds3cont-box-marpad,
+.vi-swc-top-rated-plus,
+._8Qfk .TK_K .XWqx .JuJQ,
+._8Qfk .TK_K .XWqx .JwPI,
+.ux-image-carousel-buttons,
+.mfe-lex .mfe-hotness-badge,
+.gh-sch-prom#gh .btn.btn-ter,
+.srp-controls--selected-value,
+.gh-sch-prom#gh .btn.btn-prim,
+.srp-controls__control--legacy,
+.dp-popular-destinations-module-grow li,
+.ux-image-grid-container .ux-image-grid,
+.s-controls-events .srp-controls__control,
+.x-buybox-cta .vim.x-watch-action.watch-redesign,
+.x-coupon .x-coupon__status-area .x-coupon__status,
+.title-banner .title-banner__layer__info .x-coupon,
+.x-survey-plugin:not(.x-survey-plugin__like--icon),
+.vim.x-shop-with-confidence .EBAY_MONEY_BACK_GUARANTEE_DOLLAR,
+.ux-image-grid-container.filmstrip.filmstrip-x .ux-image-grid,
+.vi-bb-flex #CenterPanelDF .watch-redesign.new-brdr-btns .btn-ter,
+.vim.x-atc-action a.ux-call-to-action:not([class*='--secondary']),
+.vim.x-atc-action button.ux-call-to-action:not([class*='--secondary']), 
+.title-banner--bgcolorimg .title-banner__right .title-banner__right-image,
+.vim.d-stores-info-categories .d-stores-info-categories__container__action,
+.vlp-merch-item-card-container .vlp-merch-item-tile .vlp-merch-image-frame,
+.vlp-merch-item-card-container .vlp-merch-item-tile .vlp-merch-item-title-dweb,
+.recs-module .merch-item-card-container .merch-item-tile .merch-image-wrap-dweb,
+.vim.x-store-information .x-store-information__cta-container .ux-call-to-action,
+.recs-module .merch-item-list-container .merch-below-hero .merch-image-wrap-dweb,
+.vim.d-payments-minview .ux-layout-section-module .ux-labels-values__values.col-9,
+.vlp-merch-item-card-container .vlp-merch-item-tile .vlp-merch-item-info .vlp-merch-price {
+  filter: invert(100%) !important;
+  -webkit-filter: invert(100%) !important;
+}
+
+#gh-la,
+#gh-ug a, 
+#gh-cat-box,
+#binBtn_btn,
+#gh-eb-u-o a,
+#linkMainImg,
+#gh-eb a:hover, 
+#gh-topl #gh-ti,
+#watchWrapperId,
+#gh-topl a:hover,
+#binBtn_btn_submit {
+  filter: invert(100%) !important;
+  -webkit-filter: invert(100%) !important;
+}
+
+.wBqm.-Rfu .PG5Z .lxpf img,
+.ux-image-grid-container .ux-image-grid .ux-image-grid-item img {
+  filter: invert(0) !important;
+  -webkit-filter: invert(0) !important;
+}
+
+.srp-grid .s-item a[data-track] {
+  filter: unset !important;
+  -webkit-filter: unset !important;
+}
+
+.dp-banner-color-theme__container {
+  filter: contrast(0.85) !important;
+  -webkit-filter: contrast(0.85) !important;
+}
+
+.pagecontainer__leftnav .b-module {
+  background: #ededed !important;
+}
+
+.pagecontainer__leftnav .b-speciallinks .b-textlink,
+.pagecontainer__leftnav .b-categorynavigations .b-textlink {
+  color: #bbbbbb !important;
+}
+
+#gh-ug a, 
+#gh-eb-u-o a,
+#gh-eb a:hover, 
+#gh-topl a:hover {
+  color: #3086f7 !important;
+}
+
+.vlp-merch-item-card-container .vlp-merch-add-to-watchlist-btn button {
+  background: #555 !important;
+}
+
+.x-refine-more button,
+.skin-large .b-breadcrumb ol li a,
+.x-refine__single-select a.disabled,
+.x-refine__multi-select a.x-refine__multi-select-link,
+.x-refine__single-select a.x-refine__single-select-link,
+.x-refine__left__nav .x-refine__main__list > .srp-refine__category__list .srp-refine__category__item .srp-refine__category__item a,
+.x-refine__left__nav .x-refine__main__list > .srp-refine__category__list .srp-refine__category__item .srp-refine__category__item button span {
+  color: #838383 !important;
+}
+
+a.fake-btn--secondary[href]:hover,
+a.fake-btn--secondary[href]:focus,
+button.btn--secondary:not([disabled],[aria-disabled='true']):hover, 
+button.btn--secondary:not([disabled],[aria-disabled='true']):focus {
+  background-color: #c3c3c3 !important;
+}
+
+.ux-image-carousel-buttons button.icon-btn,
+.recs-module .merch-item-card-container .merch-card-nib button {
+  background: #161616 !important;
+}
+
+.wBqm .GIW-,
+.carousel__control svg,
+.seo-related-search__pill a,
+.seo-related-search__pill a:link,
+.seo-related-search__pill a:hover,
+.seo-related-search__pill a:visited,
+.seo-footer-container .seo-footer-sections a,
+.x-watch-heart__watcher-counter .x-watch-heart-btn-text {
+  color: #d7d7d7 !important;
+}
+
+.gh-cart__icon svg,
+:is(:is(.home-topp-carousel .carousel__container) .carousel__playback) svg {
+  fill: #ffffff !important;
+}
+
+.x-watch-action .add-to-watch-list a .icon.icon--16:first-child,
+.follow-ebay-wrapper button.btn.follow-ebay.follow-ebay svg.icon:last-child {
+  fill: #ff8800 !important;
+}
+
+.ghw.ghw .gh-identity-signed-out-unrecognized a,
+.ux-text-list-block .ux-text-list-block__items .ux-text-list-block__item a:link,
+.ux-text-list-block .ux-text-list-block__items .ux-text-list-block__item a:active,
+.vim.d-tabs:not(.vi-redesign-v2):not(.d-tabs--evo) .tabs .tabs__items .tabs__item[role=tab] > span {
+  color: #f69909 !important;
+}
+
+a[id] .text-primary,
+.dp-watchlist-toggle-button.text-primary {
+  color: #b3b3b3 !important;
+}
+
+.ghw.ghw .gh-notifications button svg {
+  fill: #000000 !important;
+}
