@@ -38,7 +38,7 @@ def open_application(
     LOG.info("Using selector %s", selector)
     human_click(sb, selector, cfg)
 
-    wait_for_path(sb, APPLY_PATH, cfg.page_timeout, "Step 4")
+    wait_for_path(sb, APPLY_PATH, cfg.frame_timeout, "Step 4")
     settle(sb, cfg)
     verify_on_site(sb, "Step 4", expected_path=APPLY_PATH, min_body_chars=0)
 

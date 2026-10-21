@@ -125,14 +125,14 @@ def run_batch(
     for label in state.results["failed"]:
         LOG.error("FAILED: %s", label)
     if state.results["throttled"]:
-        LOG.error("Batch stopped early: the enrollment host began refusing requests.")
         LOG.error(
-            "Resume with --resume %s once it recovers -- that skips the leads "
-            "that already completed. Do not use --start-row here: with "
-            "%d worker(s) leads finish out of order, so a row after the "
-            "throttled one may already be submitted.",
+            "%d lead(s) were refused by the enrollment host on every attempt: %s",
+            len(state.results["throttled"]), ", ".join(state.results["throttled"]),
+        )
+        LOG.error(
+            "Re-run just those later with --resume %s (skips leads that "
+            "already completed).",
             run_dir / "results.csv",
-            workers,
         )
 
     return state.results
@@ -160,8 +160,9 @@ class _BatchState:
                 }
             )
 
-        if verdict and self.sheet_cfg is not None:
-            write_verdict(self.sheet_cfg, lead.row_number or 0, verdict)
+        sheet_text = _step9_modal_text(outcome, detail) or verdict
+        if sheet_text and self.sheet_cfg is not None:
+            write_verdict(self.sheet_cfg, lead.row_number or 0, sheet_text)
 
 
 def _worker(
@@ -220,10 +221,10 @@ def _worker(
             return
 
         if outcome == "throttled":
-            LOG.error("[w%d] THROTTLED -- signalling every worker to stop.", worker_id)
-            LOG.error("[w%d] %s", worker_id, detail)
-            state.stop.set()
-            return
+            LOG.error(
+                "[w%d] THROTTLED on %s after every attempt -- moving on to the "
+                "next lead: %s", worker_id, lead.label, detail,
+            )
 
 
 def _run_one(
@@ -309,7 +310,7 @@ def _attempt_one(
             except ThrottledError as exc:
                 _capture_failure(sb, cfg, run_dir)
                 _hold(cfg, sb, allow_hold)
-                return "throttled", str(exc), verdict, False
+                return "throttled", str(exc), verdict, True
             except LeadRejectedError as exc:
                 LOG.warning("Lead rejected (%s): %s", exc.verdict, exc)
                 _capture_failure(sb, cfg, run_dir)
@@ -392,6 +393,13 @@ _KNOWN_VERDICTS = frozenset({
 })
 
 _FORM_STEP = 6
+
+
+def _step9_modal_text(outcome: str, detail: str) -> str:
+    if outcome != "failed" or not (detail or "").startswith("Step 9:"):
+        return ""
+    _, separator, modal = detail.partition(" -- ")
+    return modal.strip() if separator else ""
 
 
 def _before_the_form(detail: str) -> bool:

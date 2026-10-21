@@ -123,9 +123,11 @@ class RunConfig:
 
     reconnect_time: float = 5.0
 
-    page_timeout: int = 45
+    page_timeout: int = 30
 
-    max_busy_wait: float = 60.0
+    frame_timeout: int = 50
+
+    max_busy_wait: float = 45.0
 
     step10_first_look: float = 5.0
 
@@ -208,7 +210,7 @@ class RunConfig:
 
     gologin: GoLoginConfig = field(default_factory=GoLoginConfig)
 
-    block_retries: int = 2
+    block_retries: int = 0
 
     workers: int = 1
 

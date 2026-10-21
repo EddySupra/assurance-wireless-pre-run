@@ -304,7 +304,14 @@ def _pressed_click(sb, selector: str, cfg: RunConfig) -> bool:
 
 def human_type(sb, selector: str, value: str, cfg: RunConfig) -> None:
     if not cfg.human_like:
-        sb.type(selector, value)
+        element = sb.wait_for_element_visible(selector, timeout=cfg.page_timeout)
+        for attempt in range(3):
+            if attempt:
+                time.sleep(0.3)
+            sb.type(selector, value)
+            _commit_field(sb, element)
+            if (sb.get_attribute(selector, "value") or "").strip() == str(value):
+                return
         return
 
     element = sb.wait_for_element_visible(selector, timeout=cfg.page_timeout)

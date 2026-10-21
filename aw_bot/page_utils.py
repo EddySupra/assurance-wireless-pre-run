@@ -1,4 +1,4 @@
-import random
+﻿import random
 import time
 from urllib.parse import urlparse
 
@@ -689,36 +689,61 @@ return {
 """
 
 
+BLANK_FRAME_GIVE_UP = 5.0
+NO_APP_GIVE_UP = 20.0
+
+
 def _wait_frame_ready(sb, cfg: RunConfig, step_label: str) -> str:
-    deadline = time.time() + cfg.page_timeout
+    deadline = time.time() + cfg.frame_timeout
     document_loaded = False
+    blank_since = None
+    blank_href = None
 
     while time.time() < deadline:
         try:
             state = sb.execute_script("return document.readyState")
+            href = sb.execute_script("return window.location.href") or ""
+            dead_page = href.startswith(("chrome-error:", "about:blank"))
+            app = (
+                (sb.execute_script(_APP_RENDERED_JS) or {})
+                if state == "complete" and not dead_page else {}
+            )
+            no_app = state == "complete" and not dead_page and not app.get("controls")
+            if dead_page or no_app:
+                blank_since = blank_since or time.time()
+                limit = BLANK_FRAME_GIVE_UP if dead_page else NO_APP_GIVE_UP
+                if time.time() - blank_since >= limit:
+                    blank_href = href
+            else:
+                blank_since = None
             if state == "complete" and len(body_text(sb)) > 50:
                 if not document_loaded:
                     document_loaded = True
-                    deadline = time.time() + cfg.page_timeout
+                    deadline = time.time() + cfg.frame_timeout
                     LOG.info("%s: frame loaded, waiting for the app to render", step_label)
 
-                app = sb.execute_script(_APP_RENDERED_JS) or {}
                 if app.get("controls") and not app.get("loading"):
                     return sb.execute_script("return window.location.href")
         except Exception:
             pass
+        if blank_href is not None:
+            raise ThrottledError(
+                f"{step_label}: the enrollment frame came up blank "
+                f"({blank_href[:80] or 'no url'}) with no application on it. "
+                f"The enrollment host is refusing to serve the form."
+            )
         time.sleep(0.25)
 
     if document_loaded:
         raise PageMismatchError(
             f"{step_label}: the enrollment frame loaded but its application "
-            f"never rendered any controls within {cfg.page_timeout}s. Usually a "
+            f"never rendered any controls within {cfg.frame_timeout}s. Usually a "
             f"slow connection; check the step's screenshot to be sure."
         )
 
     raise ThrottledError(
         f"{step_label}: the enrollment frame never loaded within "
-        f"{cfg.page_timeout}s (blank or broken frame). The enrollment host is "
+        f"{cfg.frame_timeout}s (blank or broken frame). The enrollment host is "
         f"refusing to serve the form. Most often that follows repeated "
         f"submissions of the same applicant. Give it time rather than retrying."
     )
@@ -1059,7 +1084,15 @@ def advance_screen(
     bring_framed_element_into_view(sb, selector, cfg)
     human_click(sb, selector, cfg)
 
-    if settle > 0:
+    if settle > 0 and not cfg.human_like:
+        wait_until = time.time() + settle
+        while time.time() < wait_until:
+            time.sleep(0.2)
+            moved = screen_headings(sb)
+            if moved and moved != before and not is_busy(sb):
+                LOG.info("%s: next screen up after %.1fs", step_label, settle - (wait_until - time.time()))
+                break
+    elif settle > 0:
         quiet = min(first_look, settle) if first_look > 0 else settle
         LOG.info(
             "%s: hands off for %.0fs while the form works -- no driver "
@@ -1095,15 +1128,18 @@ def advance_screen(
     hard_deadline = time.time() + max(budget, cfg.max_busy_wait)
     announced_busy = False
 
-    poll = 2.0
+    poll = 2.0 if cfg.human_like else 0.3
 
     retries = 0
+    progress_seen = None
 
     while time.time() < deadline and time.time() < hard_deadline:
         modal = modal_message(sb)
         if modal:
             if is_progress_modal(modal):
                 LOG.info("Waiting on the form: %s", modal)
+                progress_seen = modal
+                deadline = min(time.time() + budget, hard_deadline)
                 time.sleep(poll)
                 continue
             if is_throttle_message(modal):
@@ -1250,6 +1286,14 @@ def advance_screen(
                 f"and Cloudflare Turnstile holding no token, so it could not be "
                 f"submitted."
             )
+
+    still_working = modal_message(sb)
+    if progress_seen and still_working and is_progress_modal(still_working):
+        raise ThrottledError(
+            f"{step_label}: the form was still showing '{still_working}' after "
+            f"{cfg.max_busy_wait:.0f}s and never answered. The enrollment "
+            f"host's lookup behind this screen is not responding."
+        )
 
     interruption = frame_interruption(sb)
     if interruption:
