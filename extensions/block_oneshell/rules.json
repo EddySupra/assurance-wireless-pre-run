@@ -1,0 +1,11 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": "||shellprod.msocdn.com^",
+      "resourceTypes": ["script", "xmlhttprequest", "sub_frame", "image", "stylesheet", "font", "other"]
+    }
+  }
+]

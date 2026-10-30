@@ -1,4 +1,4 @@
-﻿import random
+import random
 import time
 from urllib.parse import urlparse
 
@@ -706,9 +706,12 @@ def _wait_frame_ready(sb, cfg: RunConfig, step_label: str) -> str:
             dead_page = href.startswith(("chrome-error:", "about:blank"))
             app = (
                 (sb.execute_script(_APP_RENDERED_JS) or {})
-                if state == "complete" and not dead_page else {}
+                if state in ("interactive", "complete") and not dead_page else {}
             )
-            no_app = state == "complete" and not dead_page and not app.get("controls")
+            no_app = (
+                state in ("interactive", "complete")
+                and not dead_page and not app.get("controls")
+            )
             if dead_page or no_app:
                 blank_since = blank_since or time.time()
                 limit = BLANK_FRAME_GIVE_UP if dead_page else NO_APP_GIVE_UP
@@ -716,7 +719,7 @@ def _wait_frame_ready(sb, cfg: RunConfig, step_label: str) -> str:
                     blank_href = href
             else:
                 blank_since = None
-            if state == "complete" and len(body_text(sb)) > 50:
+            if state in ("interactive", "complete") and len(body_text(sb)) > 50:
                 if not document_loaded:
                     document_loaded = True
                     deadline = time.time() + cfg.frame_timeout

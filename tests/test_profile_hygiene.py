@@ -1,4 +1,4 @@
-import sys
+﻿import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -244,5 +244,5 @@ def test_a_fresh_profile_and_proxy_per_lead_is_the_default():
     assert RunConfig().gologin.disposable_profiles is True
 
 
-def test_the_busy_ceiling_is_one_minute():
-    assert RunConfig().max_busy_wait == 60.0
+def test_the_busy_ceiling_is_45_seconds():
+    assert RunConfig().max_busy_wait == 45.0

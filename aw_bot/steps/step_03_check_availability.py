@@ -1,12 +1,19 @@
+import time
 from pathlib import Path
 
 from ..artifacts import capture
 from ..config import RunConfig
-from ..errors import PageMismatchError
+from ..errors import PageMismatchError, ThrottledError
 from ..human import human_click, human_type
 from ..lead import STATE_ABBREV_TO_NAME, Lead
 from ..logs import LOG
-from ..page_utils import body_text, first_visible, normalize_path, settle, verify_on_site
+from ..page_utils import (
+    body_text,
+    first_visible,
+    normalize_path,
+    settle,
+    verify_on_site,
+)
 
 STEP_NAME = "step_03_check_availability"
 
@@ -43,6 +50,8 @@ def check_availability(
 ) -> dict:
     LOG.info("Step 3: availability check for %s", lead.label)
 
+    sb.wait_for_element_visible(ZIP_SELECTOR, timeout=cfg.page_timeout)
+
     _fill(sb, ZIP_SELECTOR, lead.zip_code, "ZIP", cfg)
     _fill(sb, EMAIL_SELECTOR, lead.email, "email", cfg)
 
@@ -64,6 +73,12 @@ def check_availability(
     _await_response(sb, before, cfg)
     settle(sb, cfg)
     verify_on_site(sb, "Step 3")
+
+    if not normalize_path(sb.get_current_url()).startswith(STATE_PAGE_PREFIX):
+        raise PageMismatchError(
+            f"Step 3: the availability check never reached the state page "
+            f"(still on {sb.get_current_url()})"
+        )
 
     LOG.info("Landed on: %s", sb.get_current_url())
     LOG.info("Page title: %s", sb.get_title())
@@ -90,13 +105,32 @@ def _await_response(sb, before_path: str, cfg: RunConfig) -> None:
     except Exception:
         pass
 
-    for _ in range(40):
+    started = time.time()
+    while time.time() - started < cfg.page_timeout:
         if normalize_path(sb.get_current_url()) != before_path:
             LOG.info("Navigated to a new page after submit")
             return
+        if time.time() - started >= 3 and not _check_spinning(sb):
+            break
         sb.sleep(0.25)
 
+    if _check_spinning(sb):
+        raise ThrottledError(
+            f"Step 3: the availability check was still spinning after "
+            f"{cfg.page_timeout}s and never answered. The host is not responding."
+        )
+
     LOG.info("URL unchanged after submit -- result appears to render in place")
+
+
+def _check_spinning(sb) -> bool:
+    try:
+        return bool(sb.execute_script(
+            "const l = document.querySelector('.loader.loading, .loader .spinner');"
+            "return !!l && !!(l.offsetParent || l.getClientRects().length);"
+        ))
+    except Exception:
+        return False
 
 
 def _verify_state_page(sb, lead: Lead) -> None:

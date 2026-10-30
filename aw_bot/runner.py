@@ -183,11 +183,9 @@ def _worker(
         except queue.Empty:
             return
 
-        if handled:
-            _space_out(cfg, state)
-            if state.stop.is_set():
-                state.record(lead, "not_attempted", "batch stopped before this lead")
-                return
+        if state.stop.is_set():
+            state.record(lead, "not_attempted", "batch stopped before this lead")
+            return
 
         if on_lead_started is not None:
             try:
@@ -377,13 +375,6 @@ def _log_verdicts(rows: list[dict]) -> None:
                 "Row %s (%s) landed on a screen classify.py does not know yet.",
                 row["sheet_row"], row["name"],
             )
-
-
-def _space_out(cfg: RunConfig, state: _BatchState) -> None:
-    low, high = cfg.lead_delay
-    wait = random.uniform(low, high)
-    LOG.info("Waiting %.0fs before the next lead", wait)
-    state.stop.wait(wait)
 
 
 _STEP_IN_DETAIL = re.compile(r"\bStep (\d+)\b", re.IGNORECASE)

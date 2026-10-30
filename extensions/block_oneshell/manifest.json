@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Block stalled third-party scripts",
+  "version": "1.0",
+  "description": "Blocks shellprod.msocdn.com, whose oneshell script stalls for 30s through the proxy and holds the page blank.",
+  "permissions": ["declarativeNetRequest"],
+  "declarative_net_request": {
+    "rule_resources": [
+      { "id": "block_oneshell", "enabled": true, "path": "rules.json" }
+    ]
+  }
+}

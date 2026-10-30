@@ -214,8 +214,6 @@ class RunConfig:
 
     workers: int = 1
 
-    lead_delay: tuple[float, float] = (5.0, 10.0)
-
     sheet: SheetConfig = field(default_factory=SheetConfig)
     application: ApplicationConfig = field(default_factory=ApplicationConfig)
     use_flaresolverr: bool = False

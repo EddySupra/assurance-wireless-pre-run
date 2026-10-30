@@ -2,6 +2,7 @@ import os
 
 os.environ.setdefault("DISABLE_TELEMETRY", "true")
 
+import hashlib
 import random
 import shutil
 import threading
@@ -209,6 +210,26 @@ def _freshen_user_agent(gl, profile_id: str, worker_id: int) -> None:
         )
 
 
+_PROXIES_SEEN: dict[str, str] = {}
+_PROXIES_LOCK = threading.Lock()
+
+
+def _note_proxy(proxy: dict, profile_id: str, worker_id: int) -> None:
+    host = str(proxy.get("host") or "").strip()
+    if not host:
+        LOG.warning("[w%d] Profile %s reports no proxy host", worker_id, profile_id)
+        return
+    gateway = f"{host}:{proxy.get('port') or ''}"
+    login = str(proxy.get("username") or "")
+    session = hashlib.sha1(login.encode()).hexdigest()[:8] if login else "-"
+    key = f"{gateway}|{login}"
+    with _PROXIES_LOCK:
+        earlier = _PROXIES_SEEN.setdefault(key, profile_id)
+    LOG.info("[w%d] Proxy for this profile: %s (login %s)", worker_id, gateway, session)
+    if earlier != profile_id:
+        LOG.debug("[w%d] Same gateway login as profile %s", worker_id, earlier)
+
+
 def _match_profile_to_proxy(gl, profile_id: str, worker_id: int) -> None:
     try:
         gl.setProfileId(profile_id)
@@ -216,6 +237,8 @@ def _match_profile_to_proxy(gl, profile_id: str, worker_id: int) -> None:
     except Exception as exc:
         LOG.debug("[w%d] Could not read the new profile back: %s", worker_id, exc)
         return
+
+    _note_proxy(profile.get("proxy") or {}, profile_id, worker_id)
 
     changes: dict = {}
 

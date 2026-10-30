@@ -1,4 +1,4 @@
-import sys
+﻿import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -133,6 +133,6 @@ def test_no_sheet_config_means_no_write(monkeypatch):
 def test_the_write_happens_outside_the_batch_lock():
     source = Path("aw_bot/runner.py").read_text(encoding="utf-8")
     body = source.split("def record(")[1].split("\ndef ")[0]
-    lock_block_end = body.index("\n        if verdict and self.sheet_cfg is not None:")
+    lock_block_end = body.index("\n        if sheet_text and self.sheet_cfg is not None:")
     assert "with self.lock:" in body[:lock_block_end]
-    assert "\n        if verdict and self.sheet_cfg is not None:" in body
+    assert "\n        if sheet_text and self.sheet_cfg is not None:" in body

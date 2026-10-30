@@ -57,6 +57,15 @@ def _skewed(low: float, high: float, scale: float = 1.0) -> float:
     return max(low * 0.7, value) * scale * _tempo
 
 
+FAST_JITTER_CHANCE = 0.4
+FAST_JITTER_RANGE = (0.5, 3.0)
+
+
+def fast_jitter() -> None:
+    if random.random() < FAST_JITTER_CHANCE:
+        time.sleep(random.uniform(*FAST_JITTER_RANGE))
+
+
 def pause(cfg: RunConfig, scale: float = 1.0) -> None:
     if not cfg.human_like:
         return
@@ -234,6 +243,7 @@ def human_click(sb, selector: str, cfg: RunConfig, timeout: int | None = None) -
     timeout = timeout or cfg.page_timeout
 
     if not cfg.human_like:
+        fast_jitter()
         sb.click(selector, timeout=timeout)
         return
 
@@ -305,6 +315,7 @@ def _pressed_click(sb, selector: str, cfg: RunConfig) -> bool:
 def human_type(sb, selector: str, value: str, cfg: RunConfig) -> None:
     if not cfg.human_like:
         element = sb.wait_for_element_visible(selector, timeout=cfg.page_timeout)
+        fast_jitter()
         for attempt in range(3):
             if attempt:
                 time.sleep(0.3)

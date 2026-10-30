@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 
 from selenium.common.exceptions import (
     NoSuchWindowException,
+    StaleElementReferenceException,
     TimeoutException,
     WebDriverException,
 )
@@ -176,6 +177,16 @@ class SBShim:
             ) from exc
 
     def click(self, selector: str, timeout: int | None = None) -> None:
+        for _ in range(2):
+            try:
+                self._click_once(selector, timeout)
+                return
+            except StaleElementReferenceException:
+                LOG.debug("%s went stale before the click; finding it again", selector)
+                time.sleep(0.5)
+        self._click_once(selector, timeout)
+
+    def _click_once(self, selector: str, timeout: int | None = None) -> None:
         element = self.wait_for_element_visible(selector, timeout)
         before = self._handles()
 

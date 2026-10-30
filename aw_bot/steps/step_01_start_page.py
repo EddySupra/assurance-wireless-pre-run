@@ -1,9 +1,10 @@
+import time
 from pathlib import Path
 
 from ..artifacts import capture
 from ..config import RunConfig
 from ..logs import LOG
-from ..page_utils import settle, verify_on_site
+from ..page_utils import body_text, settle, verify_on_site
 
 STEP_NAME = "step_01_start_page"
 
@@ -14,6 +15,11 @@ def open_start_page(sb, cfg: RunConfig, lead, run_dir: Path, *, submit: bool = T
     sb.uc_open_with_reconnect(cfg.start_url, reconnect_time=cfg.reconnect_time)
 
     settle(sb, cfg)
+    if len(body_text(sb).strip()) < 50:
+        LOG.warning("Step 1: the start page is still blank -- waiting for a stalled script to time out")
+        deadline = time.time() + 20
+        while time.time() < deadline and len(body_text(sb).strip()) < 50:
+            time.sleep(0.5)
     verify_on_site(sb, "Step 1", expected_path="/")
 
     if "assurance" not in (sb.get_title() or "").lower():
