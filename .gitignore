@@ -8,3 +8,5 @@ downloaded_files/
 credentials/
 .test_cursor
 extensions/.unpacked/
+
+extensions/*/_metadata/
