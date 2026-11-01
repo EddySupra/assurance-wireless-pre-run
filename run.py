@@ -107,7 +107,11 @@ def main() -> int:
     )
 
     parser.add_argument("--sheet-key", help="spreadsheet key, overriding config.py")
-    parser.add_argument("--worksheet", help="worksheet/tab name, overriding config.py")
+    parser.add_argument(
+        "--worksheet", "--mode", dest="worksheet",
+        help="worksheet/tab name to read leads from and write results to, "
+             "overriding config.py",
+    )
     parser.add_argument(
         "--dry-run", action="store_true", help="fill fields but never click submit"
     )
@@ -375,8 +379,10 @@ def main() -> int:
     )
     parser.add_argument(
         "--allow-third-party-storage",
-        action="store_true",
-        help="let the nested Cloudflare Turnstile frame use cookies and "
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="on by default (--no-allow-third-party-storage turns it off): "
+             "let the nested Cloudflare Turnstile frame use cookies and "
              "storage. Try this when the run warns that the enrollment frame "
              "cannot write them: a challenge without storage fails with a "
              "600-series code, which this form shows as its own '(600)'.",
@@ -387,7 +393,12 @@ def main() -> int:
         "--keep-open", action="store_true", help="leave the browser open when a run ends"
     )
     parser.add_argument(
-        "--no-artifacts", action="store_true", help="skip screenshots/HTML/element dumps"
+        "--artifacts", action="store_true",
+        help="save screenshots/HTML/element dumps for every step (off by default; "
+             "turn on when diagnosing a problem)",
+    )
+    parser.add_argument(
+        "--no-artifacts", action="store_true", help=argparse.SUPPRESS
     )
     args = parser.parse_args()
 
@@ -402,7 +413,7 @@ def main() -> int:
         headless=args.headless,
         keep_open=args.keep_open,
         dry_run=args.dry_run,
-        save_artifacts=not args.no_artifacts,
+        save_artifacts=args.artifacts and not args.no_artifacts,
         human_like=not args.fast,
         real_input=args.real_input,
         allow_synthetic_fallback=args.allow_synthetic_fallback,

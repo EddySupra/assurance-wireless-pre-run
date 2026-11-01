@@ -10,3 +10,4 @@ credentials/
 extensions/.unpacked/
 
 extensions/*/_metadata/
+.proxy_ips.txt

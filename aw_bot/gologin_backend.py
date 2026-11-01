@@ -148,6 +148,9 @@ def resolve_profile_ids(cfg: RunConfig) -> list[str]:
     return list(gl_cfg.profile_ids)
 
 
+proxy_provider = None
+
+
 def create_disposable_profile(cfg: RunConfig, worker_id: int = 1) -> tuple[str, str]:
     gl_cfg = cfg.gologin
     gl = GoLogin({"token": gl_cfg.token, "profile_id": None})
@@ -170,13 +173,16 @@ def create_disposable_profile(cfg: RunConfig, worker_id: int = 1) -> tuple[str, 
         _freshen_user_agent(gl, profile_id, worker_id)
 
     try:
-        gl.addGologinProxyToProfile(
-            profile_id, gl_cfg.proxy_country, gl_cfg.proxy_type or ""
-        )
-        LOG.info(
-            "[w%d] Attached a %s %s proxy",
-            worker_id, gl_cfg.proxy_country, gl_cfg.proxy_type or "auto-selected",
-        )
+        if proxy_provider is not None:
+            proxy_provider(gl, profile_id, worker_id)
+        else:
+            gl.addGologinProxyToProfile(
+                profile_id, gl_cfg.proxy_country, gl_cfg.proxy_type or ""
+            )
+            LOG.info(
+                "[w%d] Attached a %s %s proxy",
+                worker_id, gl_cfg.proxy_country, gl_cfg.proxy_type or "auto-selected",
+            )
     except Exception as exc:
         delete_profile(gl_cfg.token, profile_id, worker_id)
         raise GoLoginError(

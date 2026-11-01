@@ -1,4 +1,5 @@
 import csv
+import re
 import threading
 from pathlib import Path
 
@@ -36,6 +37,7 @@ def load_leads(cfg: SheetConfig, only_row: int | None = None) -> list[Lead]:
             continue
 
         raw = {field: _cell(row, index) for field, index in columns.items()}
+        _unswap_dob_and_ssn(raw)
 
         if not any(str(raw.get(field) or "").strip() for field in columns if field not in OPTIONAL):
             continue
@@ -51,6 +53,17 @@ def load_leads(cfg: SheetConfig, only_row: int | None = None) -> list[Lead]:
 
     LOG.info("Loaded %d lead(s) from the sheet (%d skipped)", len(leads), skipped)
     return leads
+
+
+_FOUR_DIGITS = re.compile(r"^\s*\d{4}\s*$")
+_LOOKS_LIKE_DATE = re.compile(r"^\s*\d{1,4}[/-]\d{1,2}[/-]\d{1,4}\s*$")
+
+
+def _unswap_dob_and_ssn(raw: dict) -> None:
+    dob = str(raw.get("dob") or "")
+    ssn = str(raw.get("ssn_last4") or "")
+    if _FOUR_DIGITS.match(dob) and _LOOKS_LIKE_DATE.match(ssn):
+        raw["dob"], raw["ssn_last4"] = ssn, dob
 
 
 def _fetch_values(cfg: SheetConfig) -> list[list[str]]:
