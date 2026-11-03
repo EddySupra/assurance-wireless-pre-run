@@ -258,7 +258,66 @@ def check(identity: dict, cfg=None) -> list[str]:
     return problems
 
 
-def audit(sb, cfg=None, worker_id: int = 1) -> dict:
+EXPECTED_BY_WORKER: dict[int, dict] = {}
+CHECK_WEBRTC = False
+
+_WEBRTC_JS = """
+const done = arguments[arguments.length - 1];
+const ips = new Set();
+let finished = false;
+const finish = () => { if (!finished) { finished = true; done(Array.from(ips)); } };
+try {
+  const pc = new RTCPeerConnection({iceServers: [{urls: 'stun:stun.l.google.com:19302'}]});
+  pc.createDataChannel('x');
+  pc.onicecandidate = (e) => {
+    if (!e.candidate) { finish(); return; }
+    const addr = e.candidate.address || (e.candidate.candidate || '').split(' ')[4];
+    if (addr) ips.add(addr);
+  };
+  pc.createOffer().then((o) => pc.setLocalDescription(o)).catch(finish);
+} catch (err) { ips.add('error:' + err.message); }
+setTimeout(finish, 3500);
+"""
+
+
+def _compare_with_proxy(sb, identity: dict, worker_id: int, check_webrtc: bool) -> None:
+    expected = EXPECTED_BY_WORKER.pop(worker_id, None)
+    if not expected:
+        return
+
+    place = ", ".join(x for x in (expected.get("city"), expected.get("region")) if x)
+    browser_tz = identity.get("timezone") or "?"
+    if expected.get("timezone") and browser_tz != expected["timezone"]:
+        LOG.warning(
+            "[w%d] Timezone mismatch: the proxy exits in %s (%s) but the browser "
+            "reports %s", worker_id, place or "?", expected["timezone"], browser_tz,
+        )
+    else:
+        LOG.info(
+            "[w%d] Timezone matches the proxy exit: %s (%s, IP %s)",
+            worker_id, browser_tz, place or "?", expected.get("ip"),
+        )
+
+    if not check_webrtc:
+        return
+    try:
+        sb.driver.set_script_timeout(8)
+        seen = sb.driver.execute_async_script(_WEBRTC_JS) or []
+    except Exception as exc:
+        LOG.debug("[w%d] WebRTC check failed: %s", worker_id, exc)
+        return
+    public = [a for a in seen if a and not str(a).startswith("error:")]
+    foreign = [a for a in public if a != expected.get("ip") and not str(a).endswith(".local")]
+    if foreign:
+        LOG.warning(
+            "[w%d] WebRTC shows %s, which is not the proxy IP %s",
+            worker_id, ", ".join(map(str, foreign)), expected.get("ip"),
+        )
+    else:
+        LOG.info("[w%d] WebRTC shows no address other than the proxy's (%s)", worker_id, public or "none")
+
+
+def audit(sb, cfg=None, worker_id: int = 1, check_webrtc: bool = False) -> dict:
     try:
         identity = sb.execute_script(_IDENTITY_JS) or {}
     except Exception as exc:
@@ -280,6 +339,8 @@ def audit(sb, cfg=None, worker_id: int = 1) -> dict:
     webgl = identity.get("webgl") or {}
     if webgl:
         LOG.debug("[w%d] GPU: %s / %s", worker_id, webgl.get("vendor"), webgl.get("renderer"))
+
+    _compare_with_proxy(sb, identity, worker_id, check_webrtc or CHECK_WEBRTC)
 
     for problem in check(identity, cfg):
         LOG.warning("[w%d] Fingerprint contradiction: %s", worker_id, problem)

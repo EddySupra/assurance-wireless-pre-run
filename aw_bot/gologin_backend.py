@@ -151,6 +151,15 @@ def resolve_profile_ids(cfg: RunConfig) -> list[str]:
 proxy_provider = None
 
 
+def _disable_features(extra: list, feature: str) -> None:
+    for index, arg in enumerate(extra):
+        if arg.startswith("--disable-features="):
+            if feature not in arg:
+                extra[index] = f"{arg},{feature}"
+            return
+    extra.append(f"--disable-features={feature}")
+
+
 def create_disposable_profile(cfg: RunConfig, worker_id: int = 1) -> tuple[str, str]:
     gl_cfg = cfg.gologin
     gl = GoLogin({"token": gl_cfg.token, "profile_id": None})
@@ -245,6 +254,17 @@ def _match_profile_to_proxy(gl, profile_id: str, worker_id: int) -> None:
         return
 
     _note_proxy(profile.get("proxy") or {}, profile_id, worker_id)
+
+    LOG.info(
+        "[w%d] Profile follows its proxy: webRTC=%s (fill from IP: %s), timezone fill "
+        "from IP: %s, geolocation=%s (fill from IP: %s)",
+        worker_id,
+        (profile.get("webRTC") or {}).get("mode"),
+        (profile.get("webRTC") or {}).get("fillBasedOnIp"),
+        (profile.get("timezone") or {}).get("fillBasedOnIp"),
+        (profile.get("geolocation") or {}).get("mode"),
+        (profile.get("geolocation") or {}).get("fillBasedOnIp"),
+    )
 
     changes: dict = {}
 
@@ -401,6 +421,13 @@ def gologin_session(cfg: RunConfig, profile_id: str, worker_id: int = 1):
             "[w%d] Third-party storage left open for the nested Turnstile frame",
             worker_id,
         )
+
+    extra += [
+        "--disable-backgrounding-occluded-windows",
+        "--disable-renderer-backgrounding",
+        "--disable-background-timer-throttling",
+    ]
+    _disable_features(extra, "CalculateNativeWinOcclusion")
 
     if cfg.headless:
         extra += ["--headless=new", f"--window-size={cfg.window_size}"]

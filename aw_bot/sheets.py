@@ -27,6 +27,8 @@ def load_leads(cfg: SheetConfig, only_row: int | None = None) -> list[Lead]:
 
     leads: list[Lead] = []
     skipped = 0
+    already_done = 0
+    status_index = _letter_index(cfg.verdict_column)
 
     for offset, row in enumerate(data_rows):
         row_number = cfg.header_row + 1 + offset
@@ -34,6 +36,14 @@ def load_leads(cfg: SheetConfig, only_row: int | None = None) -> list[Lead]:
         if only_row is not None and row_number != only_row:
             continue
         if not any(str(cell).strip() for cell in row):
+            continue
+
+        if (
+            cfg.skip_done
+            and only_row is None
+            and str(_cell(row, status_index)).strip()
+        ):
+            already_done += 1
             continue
 
         raw = {field: _cell(row, index) for field, index in columns.items()}
@@ -51,6 +61,11 @@ def load_leads(cfg: SheetConfig, only_row: int | None = None) -> list[Lead]:
     if only_row is not None and not leads:
         raise SheetError(f"Row {only_row} is empty, invalid, or past the end of the sheet")
 
+    if already_done:
+        LOG.info(
+            "Skipping %d row(s) that already have a status in column %s "
+            "(use --redo-done to run them again)", already_done, cfg.verdict_column,
+        )
     LOG.info("Loaded %d lead(s) from the sheet (%d skipped)", len(leads), skipped)
     return leads
 

@@ -1040,6 +1040,51 @@ def is_busy(sb) -> bool:
     return False
 
 
+_SOLVER_BUSY_JS = (
+    "const b = document.querySelector('#capsolver-solver-tip-button');"
+    "return !!b && b.dataset.state === 'solving';"
+)
+
+CAPTCHA_SOLVER_WAIT = 30.0
+
+
+def _solver_busy(sb) -> bool:
+    try:
+        if sb.execute_script(_SOLVER_BUSY_JS):
+            return True
+        in_frame = bool(sb.execute_script("return window.self !== window.top"))
+    except Exception:
+        return False
+    if not in_frame:
+        return False
+    busy = False
+    try:
+        sb.driver.switch_to.parent_frame()
+        busy = bool(sb.execute_script(_SOLVER_BUSY_JS))
+    except Exception:
+        pass
+    finally:
+        try:
+            sb.switch_to_frame(ENROLLMENT_FRAME)
+        except Exception:
+            pass
+    return busy
+
+
+def wait_for_captcha_solver(sb, step_label: str, timeout: float = CAPTCHA_SOLVER_WAIT) -> bool:
+    if not _solver_busy(sb):
+        return True
+    LOG.info("%s: the captcha solver is still working; waiting for it before submitting", step_label)
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        time.sleep(0.4)
+        if not _solver_busy(sb):
+            LOG.info("%s: the captcha solver finished", step_label)
+            return True
+    LOG.warning("%s: the captcha solver was still working after %.0fs; continuing anyway", step_label, timeout)
+    return False
+
+
 def advance_screen(
     sb,
     cfg: RunConfig,
@@ -1069,6 +1114,7 @@ def advance_screen(
             dismiss_modal(sb)
 
     wait_for_turnstile(sb, cfg, step_label)
+    wait_for_captcha_solver(sb, step_label)
     _wait_until_enabled(sb, selector, cfg, step_label)
 
     state = form_validity(sb)

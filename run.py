@@ -113,6 +113,11 @@ def main() -> int:
              "overriding config.py",
     )
     parser.add_argument(
+        "--redo-done", action="store_true",
+        help="also run rows that already have a status in the results column "
+             "(by default they are skipped so nobody is submitted twice)",
+    )
+    parser.add_argument(
         "--dry-run", action="store_true", help="fill fields but never click submit"
     )
     gologin = parser.add_argument_group(
@@ -274,6 +279,14 @@ def main() -> int:
         "--profile-dir",
         metavar="PATH",
         help="reuse browser profiles under PATH so sessions persist between runs",
+    )
+    parser.add_argument(
+        "--skip-extension",
+        action="append",
+        metavar="TEXT",
+        help="leave out any extension whose folder path contains TEXT, for this "
+             "run only (the captcha solver's folder is named pgojnojmmhpofjgdmaebadhbocahppod, "
+             "so --skip-extension pgojnoj leaves it out). Repeat for more than one.",
     )
     parser.add_argument(
         "--extension",
@@ -461,8 +474,16 @@ def main() -> int:
         cfg.extension_dirs += tuple(
             keyed_extension(Path(p).resolve()) for p in args.extension
         )
+    if args.skip_extension:
+        skip = [t.lower() for t in args.skip_extension]
+        cfg.extension_dirs = tuple(
+            d for d in cfg.extension_dirs
+            if not any(t in str(d).lower() for t in skip)
+        )
     if args.sheet_key:
         cfg.sheet.spreadsheet_key = args.sheet_key
+    if args.redo_done:
+        cfg.sheet.skip_done = False
     if args.worksheet:
         cfg.sheet.worksheet_name = args.worksheet
 

@@ -9,7 +9,7 @@ import requests
 
 import run
 from aw_bot import config as _config  # noqa: F401  (loads .env)
-from aw_bot import gologin_backend
+from aw_bot import environment, gologin_backend
 from aw_bot.logs import LOG
 
 SESSION_MINUTES = 30
@@ -35,6 +35,23 @@ def _settings() -> dict:
 def _session_password(base: str) -> tuple[str, str]:
     session = secrets.token_hex(5)
     return f"{base}_session-{session}_lifetime-{SESSION_MINUTES}", session
+
+
+def _locate(ip: str) -> dict:
+    try:
+        data = requests.get(
+            f"http://ip-api.com/json/{ip}",
+            params={"fields": "status,city,regionName,timezone,lat,lon"},
+            timeout=8,
+        ).json()
+    except Exception:
+        return {}
+    if data.get("status") != "success":
+        return {}
+    return {
+        "city": data.get("city"), "region": data.get("regionName"),
+        "timezone": data.get("timezone"), "lat": data.get("lat"), "lon": data.get("lon"),
+    }
 
 
 def _proxy_url(cfg: dict, password: str) -> str:
@@ -101,6 +118,7 @@ def attach_evomi_proxy(gl, profile_id: str, worker_id: int) -> None:
         },
     })
     LOG.info("[w%d] Attached an Evomi proxy: %s (session %s)", worker_id, ip, session)
+    environment.EXPECTED_BY_WORKER[worker_id] = {"ip": ip, **_locate(ip)}
 
 
 def check_proxy(count: int = 4) -> int:
@@ -132,5 +150,6 @@ if __name__ == "__main__":
     if "--check-proxy" in sys.argv:
         sys.exit(check_proxy())
     _settings()
+    environment.CHECK_WEBRTC = (os.environ.get("EVOMI_CHECK_WEBRTC") or "").strip() == "1"
     gologin_backend.proxy_provider = attach_evomi_proxy
     sys.exit(run.main())

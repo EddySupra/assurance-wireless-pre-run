@@ -49,6 +49,7 @@ class SheetConfig:
 
     write_verdicts: bool = True
     verdict_column: str = "L"
+    skip_done: bool = True
 
 
 @dataclass
