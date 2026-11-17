@@ -112,7 +112,7 @@ def _await_response(sb, before_path: str, cfg: RunConfig) -> None:
             return
         if time.time() - started >= 3 and not _check_spinning(sb):
             break
-        sb.sleep(0.25)
+        sb.sleep(0.1)
 
     if _check_spinning(sb):
         raise ThrottledError(

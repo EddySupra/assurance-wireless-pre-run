@@ -95,7 +95,7 @@ def _wait_for_apply_page(sb, cfg: RunConfig) -> None:
                 )
         else:
             bounced_since = None
-        time.sleep(0.25)
+        time.sleep(0.1)
 
     raise PageMismatchError(
         f"Step 4: URL never reached {APPLY_PATH} within {cfg.frame_timeout}s "

@@ -342,7 +342,7 @@ def wait_for_modal_to_clear(sb, timeout: float = 15.0) -> bool:
     while time.time() < deadline:
         if not modal_present(sb):
             return True
-        time.sleep(0.4)
+        time.sleep(0.15)
     return not modal_present(sb)
 
 
@@ -735,7 +735,7 @@ def _wait_frame_ready(sb, cfg: RunConfig, step_label: str) -> str:
                 f"({blank_href[:80] or 'no url'}) with no application on it. "
                 f"The enrollment host is refusing to serve the form."
             )
-        time.sleep(0.25)
+        time.sleep(0.1)
 
     if document_loaded:
         raise PageMismatchError(
@@ -776,7 +776,7 @@ def wait_for_path(sb, expected: str | tuple[str, ...], timeout: int, step_label:
         path = normalize_path(sb.get_current_url())
         if path in allowed:
             return path
-        time.sleep(0.25)
+        time.sleep(0.1)
 
     raise PageMismatchError(
         f"{step_label}: URL never reached any of {sorted(allowed)} within "
@@ -926,7 +926,7 @@ def _wait_until_enabled(sb, selector: str, cfg: RunConfig, step_label: str) -> b
             return False
         if disabled is None or not disabled:
             return True
-        time.sleep(0.5)
+        time.sleep(0.1)
 
     LOG.warning("%s: %s is still disabled; clicking it anyway", step_label, selector)
     return False
@@ -1006,7 +1006,7 @@ def wait_for_turnstile(sb, cfg: RunConfig, step_label: str) -> bool:
             )
 
         _idle_signs_of_life(sb, cfg)
-        time.sleep(random.uniform(0.6, 1.4))
+        time.sleep(random.uniform(0.6, 1.4) if cfg.human_like else 0.25)
 
     status = turnstile.state(sb)
     if asked:
@@ -1136,7 +1136,7 @@ def advance_screen(
     if settle > 0 and not cfg.human_like:
         wait_until = time.time() + settle
         while time.time() < wait_until:
-            time.sleep(0.2)
+            time.sleep(0.1)
             moved = screen_headings(sb)
             if moved and moved != before and not is_busy(sb):
                 LOG.info("%s: next screen up after %.1fs", step_label, settle - (wait_until - time.time()))
@@ -1177,7 +1177,7 @@ def advance_screen(
     hard_deadline = time.time() + max(budget, cfg.max_busy_wait)
     announced_busy = False
 
-    poll = 2.0 if cfg.human_like else 0.3
+    poll = 2.0 if cfg.human_like else 0.15
 
     retries = 0
     progress_seen = None

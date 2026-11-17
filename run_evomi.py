@@ -16,7 +16,7 @@ SESSION_MINUTES = 30
 IP_ECHO = "https://api.ipify.org"
 REUSE_COOLDOWN_SECONDS = 3600
 MAX_SESSIONS_PER_PROFILE = 8
-LEDGER = Path(__file__).resolve().parent / ".proxy_ips.txt"
+LEDGER = Path(os.environ.get("PROXY_LEDGER") or Path(__file__).resolve().parent / ".proxy_ips.txt")
 _ledger_lock = threading.Lock()
 
 

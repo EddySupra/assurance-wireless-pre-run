@@ -57,8 +57,8 @@ def _skewed(low: float, high: float, scale: float = 1.0) -> float:
     return max(low * 0.7, value) * scale * _tempo
 
 
-FAST_JITTER_CHANCE = 0.4
-FAST_JITTER_RANGE = (0.5, 3.0)
+FAST_JITTER_CHANCE = 0.25
+FAST_JITTER_RANGE = (0.2, 1.0)
 
 
 def fast_jitter() -> None:

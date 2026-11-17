@@ -137,7 +137,7 @@ def _wait_for_day_options(sb, cfg: RunConfig) -> None:
                 return
         except Exception:
             pass
-        time.sleep(0.25)
+        time.sleep(0.1)
 
     raise PageMismatchError(
         "Step 6: the DOB day dropdown never populated after selecting month "

@@ -115,8 +115,8 @@ class Lead:
             last_name=_clean(raw["last_name"]),
             dob=_parse_dob(raw["dob"], row_number, warnings),
             ssn_last4=_parse_ssn_last4(raw["ssn_last4"], row_number),
-            street=_clean(raw["street"]),
-            unit=_clean(raw.get("unit", "")),
+            street=_clean_address(raw["street"]),
+            unit=_clean_address(raw.get("unit", "")),
             city=_clean(raw["city"]),
             state=_parse_state(raw["state"], row_number),
             zip_code=_parse_zip(raw["zip_code"], row_number),
@@ -152,6 +152,10 @@ def sample_lead() -> Lead:
 
 def _clean(value: object) -> str:
     return re.sub(r"\s+", " ", str(value or "")).strip()
+
+
+def _clean_address(value: object) -> str:
+    return _clean(str(value or "").replace("#", " "))
 
 
 def _digits(value: object) -> str:

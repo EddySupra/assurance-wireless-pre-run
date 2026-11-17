@@ -86,7 +86,7 @@ class GoLoginConfig:
 class ApplicationConfig:
     account_pin: str = "470293"
 
-    security_answers: tuple[str, str, str] = ("Brookfield", "Marigold", "Sandcastle")
+    security_answers: tuple[str, str, str] = ("Brookfield", "sdf", "sdf")
 
     language: str = "English"
     contact_method: str = "Email"
